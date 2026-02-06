@@ -1,31 +1,16 @@
 mod components;
 
-use chrono::Utc;
-use components::dto::{Order, OrderStatus, OrderType};
-
 use crate::components::services::OrderBookService;
+use components::dto::OrderType;
 
 fn main() {
     let mut order_book = OrderBookService::new();
-    let order_time = Utc::now();
-    order_book.add_order(Order {
-        order_type: OrderType::Buy,
-        amount: 100.0,
-        status: OrderStatus::Open,
-        created_at: order_time,
-        updated_at: order_time,
-    });
+    order_book.add_order(100.0, OrderType::Buy);
+    order_book.add_order(50.0, OrderType::Sell);
 
-    order_book.add_order(Order {
-        order_type: OrderType::Sell,
-        amount: 50.0,
-        status: OrderStatus::Open,
-        created_at: order_time,
-        updated_at: order_time,
-    });
-
-    for order_book_order in &order_book.orders {
+    for order_book_order in order_book.get_orders() {
         println!("--- Order Details ---");
+        println!("Order ID: {}", order_book_order.id);
         println!("Order Type: {:?}", order_book_order.order_type);
         println!("Order Amount: {}", order_book_order.amount);
         println!("Order Status: {:?}", order_book_order.status);
@@ -34,7 +19,6 @@ fn main() {
         println!("---------------------");
     }
 
-    println!("{:?}", order_book.orders);
     println!("OrderBookService created successfully.");
     println!("Hello, world!");
 }
