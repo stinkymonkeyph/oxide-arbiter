@@ -5,14 +5,29 @@ use components::dto::OrderType;
 
 fn main() {
     let mut order_book = OrderBookService::new();
-    order_book.add_order(100.0, OrderType::Buy);
-    order_book.add_order(50.0, OrderType::Sell);
+    order_book.add_order(components::dto::CreateOrderRequest {
+        item_id: uuid::Uuid::new_v4(),
+        user_id: uuid::Uuid::new_v4(),
+        order_type: OrderType::Buy,
+        price: 10.0,
+        quantity: 100.0,
+    });
+
+    order_book.add_order(components::dto::CreateOrderRequest {
+        item_id: uuid::Uuid::new_v4(),
+        user_id: uuid::Uuid::new_v4(),
+        order_type: OrderType::Sell,
+        price: 12.0,
+        quantity: 50.0,
+    });
 
     for order_book_order in order_book.get_orders() {
         println!("--- Order Details ---");
         println!("Order ID: {}", order_book_order.id);
+        println!("Item ID: {}", order_book_order.item_id);
+        println!("User ID: {}", order_book_order.user_id);
         println!("Order Type: {:?}", order_book_order.order_type);
-        println!("Order Amount: {}", order_book_order.amount);
+        println!("Order quantity: {}", order_book_order.quantity);
         println!("Order Status: {:?}", order_book_order.status);
         println!("Order Created At: {}", order_book_order.created_at);
         println!("Order Updated At: {}", order_book_order.updated_at);
