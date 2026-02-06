@@ -8,6 +8,7 @@ pub enum OrderType {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum OrderStatus {
     Open,
     PartiallyFilled,
@@ -16,6 +17,7 @@ pub enum OrderStatus {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Order {
     pub id: Uuid,
     pub item_id: Uuid,
@@ -30,6 +32,7 @@ pub struct Order {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Trade {
     pub id: Uuid,
     pub buy_order_id: Uuid,
@@ -40,6 +43,7 @@ pub struct Trade {
     pub timestamp: chrono::DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 pub struct CreateOrderRequest {
     pub item_id: Uuid,
     pub user_id: Uuid,
