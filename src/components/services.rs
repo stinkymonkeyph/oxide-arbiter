@@ -22,6 +22,10 @@ impl OrderBookService {
             return Err("Price cannot be negative".to_string());
         }
 
+        if create_order_request.quantity <= 0.0 {
+            return Err("Quantity must be greater than zero".to_string());
+        }
+
         let expires_at = match create_order_request.time_enforce {
             TimeEnforce::DAY => Some(Utc::now() + chrono::Duration::days(1)),
             TimeEnforce::IOC => Some(Utc::now()),
@@ -222,11 +226,6 @@ impl OrderBookService {
                 timestamp: Utc::now(),
             });
 
-            if trades.len() == 0 && matches!(incoming_order.time_enforce, TimeEnforce::FOK) {
-                self.cancel_order(incoming_order.id);
-                break;
-            }
-
             if let Some(matching_order) = self
                 .orders
                 .clone()
@@ -244,6 +243,10 @@ impl OrderBookService {
         if trades.len() > 0 && matches!(incoming_order.time_enforce, TimeEnforce::IOC) {
             self.update_order_quantity(incoming_order.id, incoming_order.quantity_filled);
             self.update_order_status(incoming_order.id, OrderStatus::Closed);
+        }
+
+        if trades.len() == 0 && matches!(incoming_order.time_enforce, TimeEnforce::FOK) {
+            self.cancel_order(incoming_order.id);
         }
 
         self.trades = trades;
