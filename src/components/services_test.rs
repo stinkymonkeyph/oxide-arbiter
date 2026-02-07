@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::components::{
-        dto::{CreateOrderRequest, OrderSide, OrderStatus, OrderType},
+        dto::{CreateOrderRequest, OrderSide, OrderStatus, OrderType, TimeEnforce},
         services::OrderBookService,
     };
     use uuid::Uuid;
@@ -15,6 +15,7 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
             price: 10.0,
+            time_enforce: TimeEnforce::DAY,
             quantity: 100.0,
         };
         let order = order_book.add_order(create_order_request).unwrap();
@@ -31,6 +32,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 20.0,
             quantity: 50.0,
         };
@@ -48,6 +50,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 15.0,
             quantity: 100.0,
         };
@@ -68,6 +71,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 25.0,
             quantity: 50.0,
         };
@@ -85,6 +89,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 30.0,
             quantity: 100.0,
         };
@@ -107,6 +112,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -117,6 +123,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 10.0,
             quantity: 50.0,
         };
@@ -147,6 +154,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -157,7 +165,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-
+            time_enforce: TimeEnforce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -186,6 +194,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -205,6 +214,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -215,6 +225,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 10.0,
             quantity: 50.0,
         };
@@ -234,6 +245,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 20.0,
             quantity: 50.0,
         };
@@ -256,6 +268,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -266,6 +279,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
             price: 15.0,
             quantity: 50.0,
         };
@@ -288,6 +302,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Market,
+            time_enforce: TimeEnforce::DAY,
             price: 0.0,
             quantity: 100.0,
         };
@@ -297,5 +312,70 @@ mod tests {
             result.err().unwrap(),
             "Market order cannot be placed without any existing orders to determine price"
         );
+    }
+
+    #[test]
+    fn should_fill_market_order_with_existing_orders() {
+        let mut order_book = OrderBookService::new();
+        let item_id = Uuid::new_v4();
+
+        let sell_order_request = CreateOrderRequest {
+            item_id,
+            user_id: Uuid::new_v4(),
+            order_side: OrderSide::Sell,
+            order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
+            price: 10.0,
+            quantity: 50.0,
+        };
+        let _ = order_book.add_order(sell_order_request);
+        let current_market_price = order_book
+            .get_current_market_price(item_id, OrderSide::Buy)
+            .unwrap();
+
+        let buy_market_order_request = CreateOrderRequest {
+            item_id,
+            user_id: Uuid::new_v4(),
+            order_side: OrderSide::Buy,
+            order_type: OrderType::Market,
+            time_enforce: TimeEnforce::DAY,
+            price: current_market_price,
+            quantity: 50.0,
+        };
+        let buy_market_order = order_book.add_order(buy_market_order_request).unwrap();
+
+        assert_eq!(buy_market_order.price, 10.0);
+        assert_eq!(buy_market_order.quantity_filled, 50.0);
+    }
+
+    #[test]
+    fn should_partially_fill_ioc_order() {
+        let mut order_book = OrderBookService::new();
+        let item_id = Uuid::new_v4();
+
+        let sell_order_request = CreateOrderRequest {
+            item_id,
+            user_id: Uuid::new_v4(),
+            order_side: OrderSide::Sell,
+            order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
+            price: 10.0,
+            quantity: 50.0,
+        };
+        let _ = order_book.add_order(sell_order_request);
+
+        let buy_ioc_order_request = CreateOrderRequest {
+            item_id,
+            user_id: Uuid::new_v4(),
+            order_side: OrderSide::Buy,
+            order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::IOC,
+            price: 10.0,
+            quantity: 100.0,
+        };
+        let buy_ioc_order = order_book.add_order(buy_ioc_order_request).unwrap();
+        assert_eq!(buy_ioc_order.quantity_filled, 50.0);
+        assert_eq!(buy_ioc_order.quantity, 50.0);
+        assert_eq!(matches!(buy_ioc_order.status, OrderStatus::Closed), true);
     }
 }

@@ -1,4 +1,6 @@
-use crate::components::dto::{CreateOrderRequest, Order, OrderSide, OrderStatus, OrderType, Trade};
+use crate::components::dto::{
+    CreateOrderRequest, Order, OrderSide, OrderStatus, OrderType, TimeEnforce, Trade,
+};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -16,6 +18,16 @@ impl OrderBookService {
     }
 
     pub fn add_order(&mut self, create_order_request: CreateOrderRequest) -> Result<Order, String> {
+        if create_order_request.price < 0.0 {
+            return Err("Price cannot be negative".to_string());
+        }
+
+        let expires_at = match create_order_request.time_enforce {
+            TimeEnforce::DAY => Some(Utc::now() + chrono::Duration::days(1)),
+            TimeEnforce::IOC => Some(Utc::now()),
+            _ => None,
+        };
+
         let mut order = Order {
             id: Uuid::new_v4(),
             item_id: create_order_request.item_id,
@@ -25,29 +37,32 @@ impl OrderBookService {
             price: create_order_request.price,
             quantity: create_order_request.quantity,
             quantity_filled: 0.0,
+            time_enforce: create_order_request.time_enforce,
             status: OrderStatus::Open,
             created_at: Utc::now(),
             updated_at: Utc::now(),
+            expires_at,
         };
 
         if matches!(order.order_type, OrderType::Market) {
-            if let Some(market_price) =
-                self.get_current_market_price(order.item_id, order.order_side)
-            {
-                order.price = market_price;
-            }
-
-            if order.price == 0.0 {
-                return Err(
+            match self.get_current_market_price(order.item_id, order.order_side) {
+                Some(market_price) if market_price < order.price => {
+                    return Err(
+                        "Market order price cannot be lower than or equal to zero".to_string()
+                    );
+                }
+                None => return Err(
                     "Market order cannot be placed without any existing orders to determine price"
                         .to_string(),
-                );
+                ),
+                _ => (),
             }
         }
 
         self.orders.push(order.clone());
         self.execute_order_matching(&mut order);
-        Ok(order)
+        let updated_order = self.get_order_by_id(order.id).unwrap().clone();
+        Ok(updated_order)
     }
 
     pub fn get_orders(&self) -> &Vec<Order> {
@@ -55,32 +70,27 @@ impl OrderBookService {
     }
 
     pub fn get_current_market_price(&self, item_id: Uuid, order_side: OrderSide) -> Option<f32> {
-        let relevant_orders: Vec<&Order> = self
-            .orders
-            .iter()
-            .filter(|o| {
-                o.item_id == item_id
-                    && matches!(
-                        (&o.order_side, &order_side),
-                        (OrderSide::Buy, OrderSide::Sell) | (OrderSide::Sell, OrderSide::Buy)
-                    )
-                    && matches!(o.status, OrderStatus::Open | OrderStatus::PartiallyFilled)
-            })
-            .collect();
+        let matched_orders = self.get_orders().iter().filter(|o| {
+            o.item_id == item_id
+                && matches!(
+                    (&o.order_side, &order_side),
+                    (OrderSide::Buy, OrderSide::Sell) | (OrderSide::Sell, OrderSide::Buy)
+                )
+                && matches!(o.status, OrderStatus::Open | OrderStatus::PartiallyFilled)
+        });
 
-        if relevant_orders.is_empty() {
-            None
-        } else {
-            let best_order = match order_side {
-                OrderSide::Buy => relevant_orders
-                    .iter()
-                    .max_by(|a, b| a.price.partial_cmp(&b.price).unwrap()),
-                OrderSide::Sell => relevant_orders
-                    .iter()
-                    .min_by(|a, b| a.price.partial_cmp(&b.price).unwrap()),
-            };
-            best_order.map(|o| o.price)
-        }
+        let best_price = match order_side {
+            OrderSide::Buy => matched_orders
+                .filter(|o| matches!(o.order_side, OrderSide::Sell))
+                .map(|o| o.price)
+                .min_by(|a, b| a.partial_cmp(b).unwrap()),
+            OrderSide::Sell => matched_orders
+                .filter(|o| matches!(o.order_side, OrderSide::Buy))
+                .map(|o| o.price)
+                .max_by(|a, b| a.partial_cmp(b).unwrap()),
+        };
+
+        best_price
     }
 
     pub fn get_order_by_id(&self, order_id: Uuid) -> Option<&Order> {
@@ -212,6 +222,11 @@ impl OrderBookService {
                 timestamp: Utc::now(),
             });
 
+            if trades.len() == 0 && matches!(incoming_order.time_enforce, TimeEnforce::FOK) {
+                self.cancel_order(incoming_order.id);
+                break;
+            }
+
             if let Some(matching_order) = self
                 .orders
                 .clone()
@@ -224,6 +239,11 @@ impl OrderBookService {
 
             incoming_order.quantity_filled += trade_quantity;
             self.fill_order(incoming_order.id, incoming_order.quantity_filled);
+        }
+
+        if trades.len() > 0 && matches!(incoming_order.time_enforce, TimeEnforce::IOC) {
+            self.update_order_quantity(incoming_order.id, incoming_order.quantity_filled);
+            self.update_order_status(incoming_order.id, OrderStatus::Closed);
         }
 
         self.trades = trades;

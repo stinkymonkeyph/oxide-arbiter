@@ -2,6 +2,15 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+pub enum TimeEnforce {
+    GTC, // Good Till Cancelled
+    IOC, // Immediate Or Cancel
+    FOK, // Fill Or Kill
+    DAY, // Day Order
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum OrderSide {
     Buy,
     Sell,
@@ -31,12 +40,14 @@ pub struct Order {
     pub user_id: Uuid,
     pub order_side: OrderSide,
     pub order_type: OrderType,
+    pub time_enforce: TimeEnforce,
     pub price: f32,
     pub quantity: f32,
     pub quantity_filled: f32,
     pub status: OrderStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone)]
@@ -59,4 +70,5 @@ pub struct CreateOrderRequest {
     pub order_type: OrderType,
     pub price: f32,
     pub quantity: f32,
+    pub time_enforce: TimeEnforce,
 }
