@@ -162,12 +162,10 @@ impl OrderBookService {
     }
 
     fn can_match_price(&self, incoming: &Order, resting: &Order) -> bool {
-        match incoming.order_type {
-            OrderType::Market => true,
-            OrderType::Limit => match incoming.order_side {
-                OrderSide::Buy => incoming.price >= resting.price,
-                OrderSide::Sell => incoming.price <= resting.price,
-            },
+        match (incoming.order_type, incoming.order_side) {
+            (OrderType::Market, _) => true,
+            (OrderType::Limit, OrderSide::Buy) => incoming.price >= resting.price,
+            (OrderType::Limit, OrderSide::Sell) => incoming.price <= resting.price,
         }
     }
 
