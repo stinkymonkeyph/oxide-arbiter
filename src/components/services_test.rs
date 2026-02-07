@@ -17,7 +17,7 @@ mod tests {
             price: 10.0,
             quantity: 100.0,
         };
-        let order = order_book.add_order(create_order_request);
+        let order = order_book.add_order(create_order_request).unwrap();
         assert_eq!(order.quantity, 100.0);
         assert_eq!(matches!(order.order_side, OrderSide::Buy), true);
         assert_eq!(matches!(order.status, OrderStatus::Open), true);
@@ -34,7 +34,7 @@ mod tests {
             price: 20.0,
             quantity: 50.0,
         };
-        let order = order_book.add_order(create_order_request);
+        let order = order_book.add_order(create_order_request).unwrap();
         let fetched_order = order_book.get_order_by_id(order.id);
         assert!(fetched_order.is_some());
         assert_eq!(fetched_order.unwrap().id, order.id);
@@ -51,7 +51,7 @@ mod tests {
             price: 15.0,
             quantity: 100.0,
         };
-        let order = order_book.add_order(create_order_request);
+        let order = order_book.add_order(create_order_request).unwrap();
         let updated_order = order_book.update_order_status(order.id, OrderStatus::Closed);
         assert!(updated_order.is_some());
         assert_eq!(
@@ -71,7 +71,7 @@ mod tests {
             price: 25.0,
             quantity: 50.0,
         };
-        let order = order_book.add_order(create_order_request);
+        let order = order_book.add_order(create_order_request).unwrap();
         let updated_order = order_book.update_order_quantity(order.id, 75.0);
         assert!(updated_order.is_some());
         assert_eq!(updated_order.unwrap().quantity, 75.0);
@@ -88,7 +88,7 @@ mod tests {
             price: 30.0,
             quantity: 100.0,
         };
-        let order = order_book.add_order(create_order_request);
+        let order = order_book.add_order(create_order_request).unwrap();
         order_book.cancel_order(order.id);
         let fetched_order = order_book.get_order_by_id(order.id);
         assert!(matches!(
@@ -110,7 +110,7 @@ mod tests {
             price: 10.0,
             quantity: 100.0,
         };
-        let buy_order = order_book.add_order(buy_order_request);
+        let buy_order = order_book.add_order(buy_order_request).unwrap();
 
         let sell_order_request = CreateOrderRequest {
             item_id,
@@ -120,7 +120,7 @@ mod tests {
             price: 10.0,
             quantity: 50.0,
         };
-        let sell_order = order_book.add_order(sell_order_request);
+        let sell_order = order_book.add_order(sell_order_request).unwrap();
 
         let fetched_buy_order = order_book.get_order_by_id(buy_order.id).unwrap();
         let fetched_sell_order = order_book.get_order_by_id(sell_order.id).unwrap();
@@ -150,7 +150,7 @@ mod tests {
             price: 10.0,
             quantity: 100.0,
         };
-        let buy_order = order_book.add_order(buy_order_request);
+        let buy_order = order_book.add_order(buy_order_request).unwrap();
 
         let sell_order_request = CreateOrderRequest {
             item_id,
@@ -161,7 +161,7 @@ mod tests {
             price: 10.0,
             quantity: 100.0,
         };
-        let sell_order = order_book.add_order(sell_order_request);
+        let sell_order = order_book.add_order(sell_order_request).unwrap();
 
         let fetched_buy_order = order_book.get_order_by_id(buy_order.id).unwrap();
         let fetched_sell_order = order_book.get_order_by_id(sell_order.id).unwrap();
@@ -189,7 +189,7 @@ mod tests {
             price: 10.0,
             quantity: 100.0,
         };
-        let order = order_book.add_order(create_order_request);
+        let order = order_book.add_order(create_order_request).unwrap();
         let updated_order = order_book.update_order_price(order.id, 15.0);
         assert!(updated_order.is_some());
         assert_eq!(updated_order.unwrap().price, 15.0);
@@ -208,7 +208,7 @@ mod tests {
             price: 10.0,
             quantity: 100.0,
         };
-        let buy_order = order_book.add_order(buy_order_request);
+        let buy_order = order_book.add_order(buy_order_request).unwrap();
 
         let sell_order_request = CreateOrderRequest {
             item_id,
@@ -218,7 +218,7 @@ mod tests {
             price: 10.0,
             quantity: 50.0,
         };
-        let sell_order = order_book.add_order(sell_order_request);
+        let sell_order = order_book.add_order(sell_order_request).unwrap();
 
         assert_eq!(order_book.trades.len(), 1);
         let trade = &order_book.trades[0];
@@ -237,7 +237,7 @@ mod tests {
             price: 20.0,
             quantity: 50.0,
         };
-        let order = order_book.add_order(create_order_request);
+        let order = order_book.add_order(create_order_request).unwrap();
         let updated_order = order_book.update_order_quantity(order.id, 75.0);
         assert!(updated_order.is_some());
         assert_eq!(updated_order.unwrap().quantity, 75.0);
@@ -251,7 +251,6 @@ mod tests {
     fn should_not_match_orders_with_incompatible_prices() {
         let mut order_book = OrderBookService::new();
         let item_id = Uuid::new_v4();
-
         let buy_order_request = CreateOrderRequest {
             item_id,
             user_id: Uuid::new_v4(),
@@ -260,8 +259,8 @@ mod tests {
             price: 10.0,
             quantity: 100.0,
         };
-        let buy_order = order_book.add_order(buy_order_request);
 
+        let buy_order = order_book.add_order(buy_order_request).unwrap();
         let sell_order_request = CreateOrderRequest {
             item_id,
             user_id: Uuid::new_v4(),
@@ -270,8 +269,8 @@ mod tests {
             price: 15.0,
             quantity: 50.0,
         };
-        let sell_order = order_book.add_order(sell_order_request);
 
+        let sell_order = order_book.add_order(sell_order_request).unwrap();
         let fetched_buy_order = order_book.get_order_by_id(buy_order.id).unwrap();
         let fetched_sell_order = order_book.get_order_by_id(sell_order.id).unwrap();
 
@@ -279,5 +278,24 @@ mod tests {
         assert_eq!(fetched_sell_order.quantity_filled, 0.0);
         assert_eq!(matches!(fetched_buy_order.status, OrderStatus::Open), true);
         assert_eq!(matches!(fetched_sell_order.status, OrderStatus::Open), true);
+    }
+
+    #[test]
+    fn should_error_market_order_without_existing_orders() {
+        let mut order_book = OrderBookService::new();
+        let create_order_request = CreateOrderRequest {
+            item_id: Uuid::new_v4(),
+            user_id: Uuid::new_v4(),
+            order_side: OrderSide::Buy,
+            order_type: OrderType::Market,
+            price: 0.0,
+            quantity: 100.0,
+        };
+        let result = order_book.add_order(create_order_request);
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap(),
+            "Market order cannot be placed without any existing orders to determine price"
+        );
     }
 }

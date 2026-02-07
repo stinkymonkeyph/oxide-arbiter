@@ -5,7 +5,7 @@ use components::dto::{OrderSide, OrderType};
 
 fn main() {
     let mut order_book = OrderBookService::new();
-    order_book.add_order(components::dto::CreateOrderRequest {
+    let _ = order_book.add_order(components::dto::CreateOrderRequest {
         item_id: uuid::Uuid::new_v4(),
         user_id: uuid::Uuid::new_v4(),
         order_side: OrderSide::Buy,
@@ -14,7 +14,7 @@ fn main() {
         quantity: 100.0,
     });
 
-    order_book.add_order(components::dto::CreateOrderRequest {
+    let _ = order_book.add_order(components::dto::CreateOrderRequest {
         item_id: uuid::Uuid::new_v4(),
         user_id: uuid::Uuid::new_v4(),
         order_side: OrderSide::Sell,

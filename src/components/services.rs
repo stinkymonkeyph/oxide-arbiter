@@ -15,7 +15,7 @@ impl OrderBookService {
         }
     }
 
-    pub fn add_order(&mut self, create_order_request: CreateOrderRequest) -> Order {
+    pub fn add_order(&mut self, create_order_request: CreateOrderRequest) -> Result<Order, String> {
         let mut order = Order {
             id: Uuid::new_v4(),
             item_id: create_order_request.item_id,
@@ -29,13 +29,58 @@ impl OrderBookService {
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
+
+        if matches!(order.order_type, OrderType::Market) {
+            if let Some(market_price) =
+                self.get_current_market_price(order.item_id, order.order_side)
+            {
+                order.price = market_price;
+            }
+
+            if order.price == 0.0 {
+                return Err(
+                    "Market order cannot be placed without any existing orders to determine price"
+                        .to_string(),
+                );
+            }
+        }
+
         self.orders.push(order.clone());
         self.execute_order_matching(&mut order);
-        order
+        Ok(order)
     }
 
     pub fn get_orders(&self) -> &Vec<Order> {
         &self.orders
+    }
+
+    pub fn get_current_market_price(&self, item_id: Uuid, order_side: OrderSide) -> Option<f32> {
+        let relevant_orders: Vec<&Order> = self
+            .orders
+            .iter()
+            .filter(|o| {
+                o.item_id == item_id
+                    && matches!(
+                        (&o.order_side, &order_side),
+                        (OrderSide::Buy, OrderSide::Sell) | (OrderSide::Sell, OrderSide::Buy)
+                    )
+                    && matches!(o.status, OrderStatus::Open | OrderStatus::PartiallyFilled)
+            })
+            .collect();
+
+        if relevant_orders.is_empty() {
+            None
+        } else {
+            let best_order = match order_side {
+                OrderSide::Buy => relevant_orders
+                    .iter()
+                    .max_by(|a, b| a.price.partial_cmp(&b.price).unwrap()),
+                OrderSide::Sell => relevant_orders
+                    .iter()
+                    .min_by(|a, b| a.price.partial_cmp(&b.price).unwrap()),
+            };
+            best_order.map(|o| o.price)
+        }
     }
 
     pub fn get_order_by_id(&self, order_id: Uuid) -> Option<&Order> {
