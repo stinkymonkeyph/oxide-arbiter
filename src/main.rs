@@ -1,14 +1,15 @@
 mod components;
 
 use crate::components::services::OrderBookService;
-use components::dto::OrderType;
+use components::dto::{OrderSide, OrderType};
 
 fn main() {
     let mut order_book = OrderBookService::new();
     order_book.add_order(components::dto::CreateOrderRequest {
         item_id: uuid::Uuid::new_v4(),
         user_id: uuid::Uuid::new_v4(),
-        order_type: OrderType::Buy,
+        order_side: OrderSide::Buy,
+        order_type: OrderType::Limit,
         price: 10.0,
         quantity: 100.0,
     });
@@ -16,7 +17,8 @@ fn main() {
     order_book.add_order(components::dto::CreateOrderRequest {
         item_id: uuid::Uuid::new_v4(),
         user_id: uuid::Uuid::new_v4(),
-        order_type: OrderType::Sell,
+        order_side: OrderSide::Sell,
+        order_type: OrderType::Limit,
         price: 12.0,
         quantity: 50.0,
     });

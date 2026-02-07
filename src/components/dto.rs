@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy)]
-pub enum OrderType {
+pub enum OrderSide {
     Buy,
     Sell,
 }
@@ -16,12 +16,20 @@ pub enum OrderStatus {
     Cancelled,
 }
 
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+pub enum OrderType {
+    Limit,
+    Market,
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Order {
     pub id: Uuid,
     pub item_id: Uuid,
     pub user_id: Uuid,
+    pub order_side: OrderSide,
     pub order_type: OrderType,
     pub price: f32,
     pub quantity: f32,
@@ -47,6 +55,7 @@ pub struct Trade {
 pub struct CreateOrderRequest {
     pub item_id: Uuid,
     pub user_id: Uuid,
+    pub order_side: OrderSide,
     pub order_type: OrderType,
     pub price: f32,
     pub quantity: f32,
