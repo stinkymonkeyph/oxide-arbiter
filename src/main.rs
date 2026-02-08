@@ -1,11 +1,11 @@
 mod components;
 
 use crate::components::services::OrderBookService;
-use components::dto::{OrderSide, OrderType, TimeEnforce};
+use components::dto::{CreateOrderRequest, OrderSide, OrderType, TimeEnforce};
 
 fn main() {
     let mut order_book = OrderBookService::new();
-    let _ = order_book.add_order(components::dto::CreateOrderRequest {
+    let _ = order_book.add_order(CreateOrderRequest {
         item_id: uuid::Uuid::new_v4(),
         user_id: uuid::Uuid::new_v4(),
         order_side: OrderSide::Buy,
@@ -15,7 +15,7 @@ fn main() {
         quantity: 100.0,
     });
 
-    let _ = order_book.add_order(components::dto::CreateOrderRequest {
+    let _ = order_book.add_order(CreateOrderRequest {
         item_id: uuid::Uuid::new_v4(),
         user_id: uuid::Uuid::new_v4(),
         order_side: OrderSide::Sell,

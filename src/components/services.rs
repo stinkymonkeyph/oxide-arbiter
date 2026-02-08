@@ -1,14 +1,17 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::components::dto::{
     CreateOrderRequest, Order, OrderSide, OrderStatus, OrderType, TimeEnforce, Trade,
 };
 use chrono::Utc;
+use ordered_float::OrderedFloat;
 use uuid::Uuid;
 
 pub struct OrderBookService {
     orders: Vec<Order>,
     order_index: HashMap<Uuid, usize>,
+    buy_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, Vec<Order>>>,
+    sell_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, Vec<Order>>>,
     pub trades: Vec<Trade>,
 }
 
@@ -18,6 +21,8 @@ impl OrderBookService {
         OrderBookService {
             orders: Default::default(),
             order_index: Default::default(),
+            buy_orders: Default::default(),
+            sell_orders: Default::default(),
             trades: Default::default(),
         }
     }
@@ -82,6 +87,26 @@ impl OrderBookService {
         self.order_index.insert(order.id, order_index);
         self.execute_order_matching(&mut order);
         let updated_order = self.get_order_by_id(order.id).unwrap().clone();
+
+        match order.order_side {
+            OrderSide::Buy => {
+                self.buy_orders
+                    .entry(order.item_id)
+                    .or_default()
+                    .entry(OrderedFloat(order.price))
+                    .or_default()
+                    .push(updated_order.clone());
+            }
+            OrderSide::Sell => {
+                self.sell_orders
+                    .entry(order.item_id)
+                    .or_default()
+                    .entry(OrderedFloat(order.price))
+                    .or_default()
+                    .push(updated_order.clone());
+            }
+        }
+
         Ok(updated_order)
     }
 
