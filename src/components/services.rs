@@ -51,17 +51,25 @@ impl OrderBookService {
 
         if matches!(order.order_type, OrderType::Market) {
             match self.get_current_market_price(order.item_id, order.order_side) {
-                Some(market_price) if market_price > order.price => {
-                    return Err(
-                        "Market order price cannot be less than the current market price"
-                            .to_string(),
-                    );
+                Some(market_price) => {
+                    let price_difference = match order.order_side {
+                        OrderSide::Buy if market_price > order.price => market_price - order.price,
+                        OrderSide::Sell if market_price < order.price => order.price - market_price,
+                        _ => 0.0,
+                    };
+
+                    if price_difference > (order.price * 0.05) {
+                        return Err(format!(
+                            "Market order price cannot be more than 5% away from the current market price. Current market price: {}, Order price: {}",
+                            market_price, order.price
+                        ));
+                    }
+                    order.price = market_price;
                 }
                 None => return Err(
                     "Market order cannot be placed without any existing orders to determine price"
                         .to_string(),
                 ),
-                _ => (),
             }
         }
 
@@ -85,18 +93,14 @@ impl OrderBookService {
                 && matches!(o.status, OrderStatus::Open | OrderStatus::PartiallyFilled)
         });
 
-        let best_price = match order_side {
+        match order_side {
             OrderSide::Buy => matched_orders
-                .filter(|o| matches!(o.order_side, OrderSide::Sell))
                 .map(|o| o.price)
                 .min_by(|a, b| a.partial_cmp(b).unwrap()),
             OrderSide::Sell => matched_orders
-                .filter(|o| matches!(o.order_side, OrderSide::Buy))
                 .map(|o| o.price)
                 .max_by(|a, b| a.partial_cmp(b).unwrap()),
-        };
-
-        best_price
+        }
     }
 
     pub fn get_order_by_id(&self, order_id: Uuid) -> Option<&Order> {

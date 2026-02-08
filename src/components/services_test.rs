@@ -390,7 +390,7 @@ mod tests {
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
             time_enforce: TimeEnforce::DAY,
-            price: 10.0,
+            price: 30.0,
             quantity: 50.0,
         };
         let _ = order_book.add_order(sell_order_request);
@@ -401,14 +401,14 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Market,
             time_enforce: TimeEnforce::DAY,
-            price: 5.0,
+            price: 20.0, // Market price is too far from the current market price
             quantity: 50.0,
         };
         let result = order_book.add_order(buy_market_order_request);
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap(),
-            "Market order price cannot be less than the current market price"
+            "Market order price cannot be more than 5% away from the current market price. Current market price: 30, Order price: 20"
         );
     }
 }
