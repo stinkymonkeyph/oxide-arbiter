@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 
 use crate::components::dto::{
     CreateOrderRequest, Order, OrderSide, OrderStatus, OrderType, TimeInForce, Trade,
@@ -10,8 +10,8 @@ use uuid::Uuid;
 pub struct OrderBookService {
     orders: Vec<Order>,
     order_index: HashMap<Uuid, usize>,
-    buy_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, Vec<Order>>>,
-    sell_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, Vec<Order>>>,
+    buy_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>,
+    sell_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>,
     pub trades: Vec<Trade>,
 }
 
@@ -83,27 +83,34 @@ impl OrderBookService {
         }
 
         let order_index = self.orders.len();
+
         self.orders.push(order.clone());
         self.order_index.insert(order.id, order_index);
         self.execute_order_matching(&mut order);
+
         let updated_order = self.get_order_by_id(order.id).unwrap().clone();
 
-        match order.order_side {
-            OrderSide::Buy => {
-                self.buy_orders
-                    .entry(order.item_id)
-                    .or_default()
-                    .entry(OrderedFloat(order.price))
-                    .or_default()
-                    .push(updated_order.clone());
-            }
-            OrderSide::Sell => {
-                self.sell_orders
-                    .entry(order.item_id)
-                    .or_default()
-                    .entry(OrderedFloat(order.price))
-                    .or_default()
-                    .push(updated_order.clone());
+        if matches!(
+            updated_order.status,
+            OrderStatus::Open | OrderStatus::PartiallyFilled
+        ) {
+            match updated_order.order_side {
+                OrderSide::Buy => {
+                    self.buy_orders
+                        .entry(updated_order.item_id)
+                        .or_default()
+                        .entry(OrderedFloat(updated_order.price))
+                        .or_default()
+                        .push_back(updated_order.clone());
+                }
+                OrderSide::Sell => {
+                    self.sell_orders
+                        .entry(updated_order.item_id)
+                        .or_default()
+                        .entry(OrderedFloat(updated_order.price))
+                        .or_default()
+                        .push_back(updated_order.clone());
+                }
             }
         }
 
@@ -115,22 +122,21 @@ impl OrderBookService {
     }
 
     pub fn get_current_market_price(&self, item_id: Uuid, order_side: OrderSide) -> Option<f32> {
-        let matched_orders = self.get_orders().iter().filter(|o| {
-            o.item_id == item_id
-                && matches!(
-                    (&o.order_side, &order_side),
-                    (OrderSide::Buy, OrderSide::Sell) | (OrderSide::Sell, OrderSide::Buy)
-                )
-                && matches!(o.status, OrderStatus::Open | OrderStatus::PartiallyFilled)
-        });
+        let price_map = match order_side {
+            OrderSide::Buy => self.sell_orders.get(&item_id)?,
+            OrderSide::Sell => self.buy_orders.get(&item_id)?,
+        };
 
         match order_side {
-            OrderSide::Buy => matched_orders
-                .map(|o| o.price)
-                .min_by(|a, b| a.partial_cmp(b).unwrap()),
-            OrderSide::Sell => matched_orders
-                .map(|o| o.price)
-                .max_by(|a, b| a.partial_cmp(b).unwrap()),
+            OrderSide::Buy => price_map
+                .iter()
+                .next()
+                .map(|(ordered_price, _)| ordered_price.0),
+
+            OrderSide::Sell => price_map
+                .iter()
+                .next_back()
+                .map(|(ordered_price, _)| ordered_price.0),
         }
     }
 
@@ -190,19 +196,65 @@ impl OrderBookService {
         }
     }
 
-    fn fill_order(&mut self, order_id: Uuid, quantity_filled: f32) -> Option<&Order> {
-        if let Some(order) = self.get_mutable_order_by_id(order_id) {
+    fn remove_from_book(&mut self, order_id: Uuid) {
+        // Get order details first
+        let order = match self.get_order_by_id(order_id) {
+            Some(o) => o.clone(), // Clone to avoid borrow issues
+            None => return,
+        };
+
+        let item_id = order.item_id;
+        let price = OrderedFloat(order.price);
+        let side = order.order_side;
+
+        // Get the right book
+        let book = match side {
+            OrderSide::Buy => &mut self.buy_orders,
+            OrderSide::Sell => &mut self.sell_orders,
+        };
+
+        // Remove from BTreeMap
+        if let Some(price_map) = book.get_mut(&item_id) {
+            if let Some(order_queue) = price_map.get_mut(&price) {
+                // Remove this order from the VecDeque
+                order_queue.retain(|o| o.id != order_id);
+
+                // If no more orders at this price, remove the price level
+                if order_queue.is_empty() {
+                    price_map.remove(&price);
+                }
+            }
+
+            // If no more prices for this item, remove the item
+            if price_map.is_empty() {
+                book.remove(&item_id);
+            }
+        }
+    }
+
+    fn fill_order(&mut self, order_id: Uuid, quantity_filled: f32) -> Option<Order> {
+        let order_filled: Option<Order>;
+        let should_remove: bool = if let Some(order) = self.get_mutable_order_by_id(order_id) {
             order.quantity_filled += quantity_filled;
+
             if order.quantity_filled >= order.quantity {
                 order.status = OrderStatus::Closed;
             } else {
                 order.status = OrderStatus::PartiallyFilled;
             }
+
             order.updated_at = Utc::now();
-            Some(order)
+            order_filled = Some(order.clone());
+            order.quantity_filled >= order.quantity
         } else {
-            None
+            return None;
+        };
+
+        if should_remove {
+            self.remove_from_book(order_id);
         }
+
+        order_filled
     }
 
     fn can_match_price(&self, incoming: &Order, resting: &Order) -> bool {
