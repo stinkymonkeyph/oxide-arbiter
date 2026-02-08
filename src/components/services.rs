@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::components::dto::{
     CreateOrderRequest, Order, OrderSide, OrderStatus, OrderType, TimeEnforce, Trade,
 };
@@ -6,6 +8,7 @@ use uuid::Uuid;
 
 pub struct OrderBookService {
     orders: Vec<Order>,
+    order_index: HashMap<Uuid, usize>,
     pub trades: Vec<Trade>,
 }
 
@@ -14,6 +17,7 @@ impl OrderBookService {
     pub fn new() -> Self {
         OrderBookService {
             orders: Default::default(),
+            order_index: Default::default(),
             trades: Default::default(),
         }
     }
@@ -73,7 +77,9 @@ impl OrderBookService {
             }
         }
 
+        let order_index = self.orders.len();
         self.orders.push(order.clone());
+        self.order_index.insert(order.id, order_index);
         self.execute_order_matching(&mut order);
         let updated_order = self.get_order_by_id(order.id).unwrap().clone();
         Ok(updated_order)
@@ -104,7 +110,15 @@ impl OrderBookService {
     }
 
     pub fn get_order_by_id(&self, order_id: Uuid) -> Option<&Order> {
-        self.orders.iter().find(|order| order.id == order_id)
+        self.order_index
+            .get(&order_id)
+            .and_then(|&index| self.orders.get(index))
+    }
+
+    pub fn get_mutable_order_by_id(&mut self, order_id: Uuid) -> Option<&mut Order> {
+        self.order_index
+            .get(&order_id)
+            .and_then(|&index| self.orders.get_mut(index))
     }
 
     pub fn update_order_status(
@@ -112,7 +126,7 @@ impl OrderBookService {
         order_id: Uuid,
         new_status: OrderStatus,
     ) -> Option<&Order> {
-        if let Some(order) = self.orders.iter_mut().find(|order| order.id == order_id) {
+        if let Some(order) = self.get_mutable_order_by_id(order_id) {
             order.status = new_status;
             order.updated_at = Utc::now();
             Some(order)
@@ -122,7 +136,7 @@ impl OrderBookService {
     }
 
     pub fn cancel_order(&mut self, order_id: Uuid) -> bool {
-        if let Some(order) = self.orders.iter_mut().find(|order| order.id == order_id) {
+        if let Some(order) = self.get_mutable_order_by_id(order_id) {
             order.status = OrderStatus::Cancelled;
             order.updated_at = Utc::now();
             true
@@ -142,7 +156,7 @@ impl OrderBookService {
     }
 
     pub fn update_order_price(&mut self, order_id: Uuid, new_price: f32) -> Option<&Order> {
-        if let Some(order) = self.orders.iter_mut().find(|order| order.id == order_id) {
+        if let Some(order) = self.get_mutable_order_by_id(order_id) {
             order.price = new_price;
             order.updated_at = Utc::now();
             Some(order)
@@ -152,7 +166,7 @@ impl OrderBookService {
     }
 
     fn fill_order(&mut self, order_id: Uuid, quantity_filled: f32) -> Option<&Order> {
-        if let Some(order) = self.orders.iter_mut().find(|order| order.id == order_id) {
+        if let Some(order) = self.get_mutable_order_by_id(order_id) {
             order.quantity_filled += quantity_filled;
             if order.quantity_filled >= order.quantity {
                 order.status = OrderStatus::Closed;
