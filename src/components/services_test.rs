@@ -378,4 +378,37 @@ mod tests {
         assert_eq!(buy_ioc_order.quantity, 50.0);
         assert_eq!(matches!(buy_ioc_order.status, OrderStatus::Closed), true);
     }
+
+    #[test]
+    fn should_not_fill_because_invalid_market_price() {
+        let mut order_book = OrderBookService::new();
+        let item_id = Uuid::new_v4();
+
+        let sell_order_request = CreateOrderRequest {
+            item_id,
+            user_id: Uuid::new_v4(),
+            order_side: OrderSide::Sell,
+            order_type: OrderType::Limit,
+            time_enforce: TimeEnforce::DAY,
+            price: 10.0,
+            quantity: 50.0,
+        };
+        let _ = order_book.add_order(sell_order_request);
+
+        let buy_market_order_request = CreateOrderRequest {
+            item_id,
+            user_id: Uuid::new_v4(),
+            order_side: OrderSide::Buy,
+            order_type: OrderType::Market,
+            time_enforce: TimeEnforce::DAY,
+            price: 5.0,
+            quantity: 50.0,
+        };
+        let result = order_book.add_order(buy_market_order_request);
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap(),
+            "Market order price cannot be less than the current market price"
+        );
+    }
 }

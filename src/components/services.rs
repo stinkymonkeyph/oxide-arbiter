@@ -51,9 +51,10 @@ impl OrderBookService {
 
         if matches!(order.order_type, OrderType::Market) {
             match self.get_current_market_price(order.item_id, order.order_side) {
-                Some(market_price) if market_price < order.price => {
+                Some(market_price) if market_price > order.price => {
                     return Err(
-                        "Market order price cannot be lower than or equal to zero".to_string()
+                        "Market order price cannot be less than the current market price"
+                            .to_string(),
                     );
                 }
                 None => return Err(
