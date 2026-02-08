@@ -197,9 +197,8 @@ impl OrderBookService {
     }
 
     fn remove_from_book(&mut self, order_id: Uuid) {
-        // Get order details first
         let order = match self.get_order_by_id(order_id) {
-            Some(o) => o.clone(), // Clone to avoid borrow issues
+            Some(order) => order.clone(),
             None => return,
         };
 
@@ -207,25 +206,20 @@ impl OrderBookService {
         let price = OrderedFloat(order.price);
         let side = order.order_side;
 
-        // Get the right book
         let book = match side {
             OrderSide::Buy => &mut self.buy_orders,
             OrderSide::Sell => &mut self.sell_orders,
         };
 
-        // Remove from BTreeMap
         if let Some(price_map) = book.get_mut(&item_id) {
             if let Some(order_queue) = price_map.get_mut(&price) {
-                // Remove this order from the VecDeque
                 order_queue.retain(|o| o.id != order_id);
 
-                // If no more orders at this price, remove the price level
                 if order_queue.is_empty() {
                     price_map.remove(&price);
                 }
             }
 
-            // If no more prices for this item, remove the item
             if price_map.is_empty() {
                 book.remove(&item_id);
             }
