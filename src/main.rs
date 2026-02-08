@@ -1,7 +1,7 @@
 mod components;
 
 use crate::components::services::OrderBookService;
-use components::dto::{CreateOrderRequest, OrderSide, OrderType, TimeEnforce};
+use components::dto::{CreateOrderRequest, OrderSide, OrderType, TimeInForce};
 
 fn main() {
     let mut order_book = OrderBookService::new();
@@ -10,7 +10,7 @@ fn main() {
         user_id: uuid::Uuid::new_v4(),
         order_side: OrderSide::Buy,
         order_type: OrderType::Limit,
-        time_enforce: TimeEnforce::DAY,
+        time_in_force: TimeInForce::DAY,
         price: 10.0,
         quantity: 100.0,
     });
@@ -20,7 +20,7 @@ fn main() {
         user_id: uuid::Uuid::new_v4(),
         order_side: OrderSide::Sell,
         order_type: OrderType::Limit,
-        time_enforce: TimeEnforce::DAY,
+        time_in_force: TimeInForce::DAY,
         price: 12.0,
         quantity: 50.0,
     });

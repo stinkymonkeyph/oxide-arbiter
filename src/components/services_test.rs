@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::components::{
-        dto::{CreateOrderRequest, OrderSide, OrderStatus, OrderType, TimeEnforce},
+        dto::{CreateOrderRequest, OrderSide, OrderStatus, OrderType, TimeInForce},
         services::OrderBookService,
     };
     use uuid::Uuid;
@@ -15,7 +15,7 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
             price: 10.0,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             quantity: 100.0,
         };
         let order = order_book.add_order(create_order_request).unwrap();
@@ -32,7 +32,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 20.0,
             quantity: 50.0,
         };
@@ -50,7 +50,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 15.0,
             quantity: 100.0,
         };
@@ -71,7 +71,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 25.0,
             quantity: 50.0,
         };
@@ -89,7 +89,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 30.0,
             quantity: 100.0,
         };
@@ -112,7 +112,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -123,7 +123,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 10.0,
             quantity: 50.0,
         };
@@ -154,7 +154,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -165,7 +165,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -194,7 +194,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -214,7 +214,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -225,7 +225,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 10.0,
             quantity: 50.0,
         };
@@ -245,7 +245,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 20.0,
             quantity: 50.0,
         };
@@ -268,7 +268,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 10.0,
             quantity: 100.0,
         };
@@ -279,7 +279,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 15.0,
             quantity: 50.0,
         };
@@ -302,7 +302,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Market,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 0.0,
             quantity: 100.0,
         };
@@ -324,7 +324,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 10.0,
             quantity: 50.0,
         };
@@ -338,7 +338,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Market,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: current_market_price,
             quantity: 50.0,
         };
@@ -358,7 +358,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 10.0,
             quantity: 50.0,
         };
@@ -369,7 +369,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::IOC,
+            time_in_force: TimeInForce::IOC,
             price: 10.0,
             quantity: 100.0,
         };
@@ -389,7 +389,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 30.0,
             quantity: 50.0,
         };
@@ -400,7 +400,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Market,
-            time_enforce: TimeEnforce::DAY,
+            time_in_force: TimeInForce::DAY,
             price: 20.0, // Market price is too far from the current market price
             quantity: 50.0,
         };

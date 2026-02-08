@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
-pub enum TimeEnforce {
+pub enum TimeInForce {
     GTC, // Good Till Cancelled
     IOC, // Immediate Or Cancel
     FOK, // Fill Or Kill
@@ -40,7 +40,7 @@ pub struct Order {
     pub user_id: Uuid,
     pub order_side: OrderSide,
     pub order_type: OrderType,
-    pub time_enforce: TimeEnforce,
+    pub time_in_force: TimeInForce,
     pub price: f32,
     pub quantity: f32,
     pub quantity_filled: f32,
@@ -70,5 +70,5 @@ pub struct CreateOrderRequest {
     pub order_type: OrderType,
     pub price: f32,
     pub quantity: f32,
-    pub time_enforce: TimeEnforce,
+    pub time_in_force: TimeInForce,
 }

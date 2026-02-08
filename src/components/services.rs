@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::components::dto::{
-    CreateOrderRequest, Order, OrderSide, OrderStatus, OrderType, TimeEnforce, Trade,
+    CreateOrderRequest, Order, OrderSide, OrderStatus, OrderType, TimeInForce, Trade,
 };
 use chrono::Utc;
 use ordered_float::OrderedFloat;
@@ -36,9 +36,9 @@ impl OrderBookService {
             return Err("Quantity must be greater than zero".to_string());
         }
 
-        let expires_at = match create_order_request.time_enforce {
-            TimeEnforce::DAY => Some(Utc::now() + chrono::Duration::days(1)),
-            TimeEnforce::IOC => Some(Utc::now()),
+        let expires_at = match create_order_request.time_in_force {
+            TimeInForce::DAY => Some(Utc::now() + chrono::Duration::days(1)),
+            TimeInForce::IOC => Some(Utc::now()),
             _ => None,
         };
 
@@ -51,7 +51,7 @@ impl OrderBookService {
             price: create_order_request.price,
             quantity: create_order_request.quantity,
             quantity_filled: 0.0,
-            time_enforce: create_order_request.time_enforce,
+            time_in_force: create_order_request.time_in_force,
             status: OrderStatus::Open,
             created_at: Utc::now(),
             updated_at: Utc::now(),
@@ -283,12 +283,12 @@ impl OrderBookService {
             self.fill_order(incoming_order.id, incoming_order.quantity_filled);
         }
 
-        if trades.len() > 0 && matches!(incoming_order.time_enforce, TimeEnforce::IOC) {
+        if trades.len() > 0 && matches!(incoming_order.time_in_force, TimeInForce::IOC) {
             self.update_order_quantity(incoming_order.id, incoming_order.quantity_filled);
             self.update_order_status(incoming_order.id, OrderStatus::Closed);
         }
 
-        if trades.len() == 0 && matches!(incoming_order.time_enforce, TimeEnforce::FOK) {
+        if trades.len() == 0 && matches!(incoming_order.time_in_force, TimeInForce::FOK) {
             self.cancel_order(incoming_order.id);
         }
 
