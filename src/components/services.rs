@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::{
+    cmp::min,
+    collections::{BTreeMap, HashMap, VecDeque},
+};
 
 use crate::components::dto::{
     CreateOrderRequest, Order, OrderSide, OrderStatus, OrderType, TimeInForce, Trade,
@@ -262,75 +265,90 @@ impl OrderBookService {
     pub fn execute_order_matching(&mut self, incoming_order: &mut Order) {
         let mut trades: Vec<Trade> = Vec::new();
 
-        let mut matching_order_ids: Vec<(Uuid, f32, f32, chrono::DateTime<Utc>)> = self
-            .orders
-            .iter()
-            .filter(|o| {
-                o.item_id == incoming_order.item_id
-                    && matches!(
-                        (&o.order_side, &incoming_order.order_side),
-                        (OrderSide::Buy, OrderSide::Sell) | (OrderSide::Sell, OrderSide::Buy)
-                    )
-                    && matches!(o.status, OrderStatus::Open | OrderStatus::PartiallyFilled)
-                    && self.can_match_price(&incoming_order, o)
-            })
-            .map(|o| {
-                (
-                    o.id,
-                    o.quantity,
-                    o.quantity - o.quantity_filled,
-                    o.created_at,
+        let order_book_side = match incoming_order.order_side {
+            OrderSide::Buy => self.sell_orders.clone(),
+            OrderSide::Sell => self.buy_orders.clone(),
+        };
+
+        let price_maps = match order_book_side.get(&incoming_order.item_id) {
+            Some(item) => item,
+            _ => {
+                return;
+            }
+        };
+
+        let prices: Vec<OrderedFloat<f32>> = match incoming_order.order_side {
+            OrderSide::Buy => price_maps.keys().cloned().collect(),
+            OrderSide::Sell => price_maps.keys().cloned().rev().collect(),
+        };
+
+        for price in &prices {
+            let order_queue = &price_maps[price];
+
+            for resting_order in order_queue {
+                let order = self.get_mutable_order_by_id(resting_order.id);
+
+                if !order.is_some() {
+                    break;
+                }
+
+                let is_match = self.can_match_price(incoming_order, resting_order);
+
+                if !is_match {
+                    break;
+                }
+
+                let available_quantity = resting_order.quantity - resting_order.quantity_filled;
+                if available_quantity <= 0.0 {
+                    break;
+                }
+
+                let quantity_to_match = incoming_order.quantity - incoming_order.quantity_filled;
+                let trade_quantity = min(
+                    OrderedFloat(available_quantity),
+                    OrderedFloat(quantity_to_match),
                 )
-            })
-            .collect();
+                .into_inner();
 
-        matching_order_ids.sort_by_key(|(_, _, _, created_at)| *created_at);
+                if trade_quantity <= 0.0 {
+                    break;
+                }
 
-        for (matching_order_id, available_quantity, price, _) in matching_order_ids {
-            if incoming_order.quantity_filled >= incoming_order.quantity {
-                break;
+                trades.push(Trade {
+                    id: Uuid::new_v4(),
+                    buy_order_id: if matches!(incoming_order.order_side, OrderSide::Buy) {
+                        incoming_order.id
+                    } else {
+                        resting_order.id
+                    },
+                    sell_order_id: if matches!(incoming_order.order_side, OrderSide::Sell) {
+                        incoming_order.id
+                    } else {
+                        resting_order.id
+                    },
+                    item_id: incoming_order.item_id,
+                    quantity: trade_quantity,
+                    price: price.into_inner(),
+                    timestamp: Utc::now(),
+                });
+
+                let mut resting_quantity_filled = resting_order.quantity_filled;
+                resting_quantity_filled += trade_quantity;
+                self.fill_order(resting_order.id, resting_quantity_filled);
+
+                let mut incoming_quantity_filled = incoming_order.quantity_filled;
+                incoming_quantity_filled += trade_quantity;
+                self.fill_order(incoming_order.id, incoming_quantity_filled);
             }
-
-            let trade_quantity =
-                available_quantity.min(incoming_order.quantity - incoming_order.quantity_filled);
-            if trade_quantity <= 0.0 {
-                continue;
-            }
-
-            trades.push(Trade {
-                id: Uuid::new_v4(),
-                buy_order_id: if matches!(incoming_order.order_side, OrderSide::Buy) {
-                    incoming_order.id
-                } else {
-                    matching_order_id
-                },
-                sell_order_id: if matches!(incoming_order.order_side, OrderSide::Sell) {
-                    incoming_order.id
-                } else {
-                    matching_order_id
-                },
-                item_id: incoming_order.item_id,
-                quantity: trade_quantity,
-                price,
-                timestamp: Utc::now(),
-            });
-
-            if let Some(matching_order) = self
-                .orders
-                .clone()
-                .iter_mut()
-                .find(|o| o.id == matching_order_id.clone())
-            {
-                matching_order.quantity_filled += trade_quantity;
-                self.fill_order(matching_order.id.clone(), matching_order.quantity_filled);
-            }
-
-            incoming_order.quantity_filled += trade_quantity;
-            self.fill_order(incoming_order.id, incoming_order.quantity_filled);
         }
 
+        let updated_incoming_order = self.get_order_by_id(incoming_order.id);
+
         if trades.len() > 0 && matches!(incoming_order.time_in_force, TimeInForce::IOC) {
-            self.update_order_quantity(incoming_order.id, incoming_order.quantity_filled);
+            self.update_order_quantity(
+                incoming_order.id,
+                updated_incoming_order.unwrap().quantity_filled,
+            );
             self.update_order_status(incoming_order.id, OrderStatus::Closed);
         }
 
