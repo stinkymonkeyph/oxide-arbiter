@@ -16,7 +16,7 @@ oxide-arbiter implements a Centralized Limit Order Book (CLOB) with price-time p
 - **Four time-in-force policies** — GTC, IOC, FOK, DAY
 - **Partial fills** — tracks `quantity_filled` independently; status transitions Open → PartiallyFilled → Closed
 - **Multi-asset support** — a single `OrderBookService` manages independent order books per `item_id`
-- **O(1) order lookups** — HashMap index over the main orders vector
+- **O(1) order lookups** — orders stored directly in a `HashMap<Uuid, Order>`
 - **Trade history** — every execution recorded with buy/sell order IDs, quantity, price, and timestamp
 
 ---
@@ -26,8 +26,7 @@ oxide-arbiter implements a Centralized Limit Order Book (CLOB) with price-time p
 `OrderBookService` uses a layered data structure:
 
 ```
-orders: Vec<Order>                          // source of truth for all orders
-order_index: HashMap<Uuid, usize>           // O(1) index into orders vec
+orders: HashMap<Uuid, Order>               // source of truth; O(1) lookup by ID
 
 buy_orders:  HashMap<item_id, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>
 sell_orders: HashMap<item_id, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>
@@ -125,7 +124,7 @@ OrderBookService::new() -> Self
 add_order(&mut self, req: CreateOrderRequest) -> Result<Order, String>
 
 // Queries
-get_orders(&self) -> &Vec<Order>
+get_orders(&self) -> &HashMap<Uuid, Order>
 get_order_by_id(&self, order_id: Uuid) -> Option<&Order>
 get_current_market_price(&self, item_id: Uuid, side: OrderSide) -> Option<f32>
 
