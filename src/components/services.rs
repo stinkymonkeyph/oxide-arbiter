@@ -11,8 +11,7 @@ use ordered_float::OrderedFloat;
 use uuid::Uuid;
 
 pub struct OrderBookService {
-    orders: Vec<Order>,
-    order_index: HashMap<Uuid, usize>,
+    orders: HashMap<Uuid, Order>,
     buy_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>,
     sell_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>,
     pub trades: Vec<Trade>,
@@ -23,7 +22,6 @@ impl OrderBookService {
     pub fn new() -> Self {
         OrderBookService {
             orders: Default::default(),
-            order_index: Default::default(),
             buy_orders: Default::default(),
             sell_orders: Default::default(),
             trades: Default::default(),
@@ -85,10 +83,7 @@ impl OrderBookService {
             }
         }
 
-        let order_index = self.orders.len();
-
-        self.orders.push(order.clone());
-        self.order_index.insert(order.id, order_index);
+        self.orders.insert(order.id, order.clone());
         self.execute_order_matching(&mut order);
 
         let updated_order = self.get_order_by_id(order.id).unwrap().clone();
@@ -120,7 +115,7 @@ impl OrderBookService {
         Ok(updated_order)
     }
 
-    pub fn get_orders(&self) -> &Vec<Order> {
+    pub fn get_orders(&self) -> &HashMap<Uuid, Order> {
         &self.orders
     }
 
@@ -144,15 +139,11 @@ impl OrderBookService {
     }
 
     pub fn get_order_by_id(&self, order_id: Uuid) -> Option<&Order> {
-        self.order_index
-            .get(&order_id)
-            .and_then(|&index| self.orders.get(index))
+        self.orders.get(&order_id)
     }
 
     pub fn get_mutable_order_by_id(&mut self, order_id: Uuid) -> Option<&mut Order> {
-        self.order_index
-            .get(&order_id)
-            .and_then(|&index| self.orders.get_mut(index))
+        self.orders.get_mut(&order_id)
     }
 
     pub fn update_order_status(
@@ -180,7 +171,7 @@ impl OrderBookService {
     }
 
     pub fn update_order_quantity(&mut self, order_id: Uuid, new_quantity: f32) -> Option<&Order> {
-        if let Some(order) = self.orders.iter_mut().find(|order| order.id == order_id) {
+        if let Some(order) = self.orders.get_mut(&order_id) {
             order.quantity = new_quantity;
             order.updated_at = Utc::now();
             Some(order)

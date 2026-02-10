@@ -25,7 +25,7 @@ fn main() {
         quantity: 50.0,
     });
 
-    for order_book_order in order_book.get_orders() {
+    for (_, order_book_order) in order_book.get_orders() {
         println!("--- Order Details ---");
         println!("Order ID: {}", order_book_order.id);
         println!("Item ID: {}", order_book_order.item_id);
