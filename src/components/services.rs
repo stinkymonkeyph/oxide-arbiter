@@ -6,7 +6,7 @@ use std::{
 use crate::components::dto::{
     CreateOrderRequest, Order, OrderSide, OrderStatus, OrderType, TimeInForce, Trade,
 };
-use chrono::Utc;
+use chrono::{DateTime, Duration, Utc};
 use ordered_float::OrderedFloat;
 use uuid::Uuid;
 
@@ -117,6 +117,17 @@ impl OrderBookService {
 
     pub fn get_orders(&self) -> &HashMap<Uuid, Order> {
         &self.orders
+    }
+
+    fn is_expired_more_than_24_hours(&self, expires_at: Option<DateTime<Utc>>) -> bool {
+        match expires_at {
+            Some(expiry) => {
+                let now = Utc::now();
+                let twenty_four_hours_ago = now - Duration::hours(24);
+                expiry < twenty_four_hours_ago
+            }
+            None => false,
+        }
     }
 
     pub fn get_current_market_price(&self, item_id: Uuid, order_side: OrderSide) -> Option<f32> {
@@ -282,6 +293,13 @@ impl OrderBookService {
 
                 let resting_order = resting_order.unwrap();
                 let resting_order_snapshot = resting_order.clone();
+
+                if matches!(resting_order.time_in_force, TimeInForce::DAY)
+                    && self.is_expired_more_than_24_hours(resting_order.expires_at)
+                {
+                    self.remove_from_book(resting_order.id);
+                    break;
+                }
 
                 let is_match = self.can_match_price(incoming_order, resting_order);
 
