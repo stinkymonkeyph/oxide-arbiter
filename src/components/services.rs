@@ -268,6 +268,7 @@ impl OrderBookService {
         };
 
         let mut matched_trade_list: HashMap<usize, Order> = HashMap::new();
+        let mut staged_order_to_fill: HashMap<Uuid, f32> = HashMap::new();
 
         for price in &prices {
             let order_queue = &price_maps[price];
@@ -327,27 +328,26 @@ impl OrderBookService {
 
                 matched_trade_list.insert(trade_index, resting_order_snapshot);
 
-                self.fill_order(resting_order.id, trade_quantity);
-                self.fill_order(incoming_order.id, trade_quantity);
-                if let Some(order) = self.get_mutable_order_by_id(incoming_order.id) {
-                    incoming_order.quantity = order.quantity;
-                    incoming_order.quantity_filled = order.quantity_filled;
+                staged_order_to_fill.insert(resting_order.id, trade_quantity);
+                staged_order_to_fill.insert(incoming_order.id, trade_quantity);
+
+                if let Some(order) = self.get_order_by_id(incoming_order.id) {
+                    let mut quantity_filled = order.quantity_filled.clone();
+                    quantity_filled += trade_quantity;
+                    incoming_order.quantity_filled = quantity_filled;
                 }
             }
         }
 
-        let updated_incoming_order = self.get_order_by_id(incoming_order.id);
-        let updated_incoming_order = updated_incoming_order.unwrap().clone();
         let mut performed_reversal = false;
 
         if trades.len() > 0 && matches!(incoming_order.time_in_force, TimeInForce::IOC) {
-            self.update_order_quantity(incoming_order.id, updated_incoming_order.quantity_filled);
+            self.update_order_quantity(incoming_order.id, incoming_order.quantity_filled);
             self.update_order_status(incoming_order.id, OrderStatus::Closed);
         }
 
-        if trades.len() == 0 && matches!(incoming_order.time_in_force, TimeInForce::FOK)
-            || matches!(incoming_order.time_in_force, TimeInForce::FOK)
-                && updated_incoming_order.quantity_filled != updated_incoming_order.quantity
+        if matches!(incoming_order.time_in_force, TimeInForce::FOK)
+            && incoming_order.quantity_filled != incoming_order.quantity
         {
             self.cancel_order(incoming_order.id);
             performed_reversal = true;
@@ -357,6 +357,9 @@ impl OrderBookService {
         }
 
         if !performed_reversal {
+            for (order_id, trade_quantity) in staged_order_to_fill {
+                self.fill_order(order_id, trade_quantity);
+            }
             for (_, order) in matched_trade_list {
                 self.remove_from_book(order.id);
             }
