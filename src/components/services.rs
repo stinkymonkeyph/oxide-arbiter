@@ -14,6 +14,7 @@ pub struct OrderBookService {
     orders: HashMap<Uuid, Order>,
     buy_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>,
     sell_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>,
+    /// All trades executed since the service was created. Appended to on each `add_order` call.
     pub trades: Vec<Trade>,
 }
 

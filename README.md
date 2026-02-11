@@ -152,10 +152,7 @@ trades: Vec<Trade>
 ## Usage
 
 ```rust
-use oxide_arbiter::components::{
-    dto::{CreateOrderRequest, OrderSide, OrderType, TimeInForce},
-    services::OrderBookService,
-};
+use oxide_arbiter::{CreateOrderRequest, OrderBookService, OrderSide, OrderType, TimeInForce};
 
 let mut book = OrderBookService::new();
 let asset_id = uuid::Uuid::new_v4();
@@ -201,10 +198,45 @@ println!("Buy order status: {:?}", filled.status); // Closed
 cargo test
 ```
 
-14 test cases covering:
+15 test cases covering:
 
 - Order CRUD — creation, lookup, status/quantity/price updates, cancellation
 - Matching — partial fills, full fills, incompatible price rejection
 - Market orders — price discovery, slippage protection, no-liquidity error
 - Time-in-force — IOC partial fill behaviour
 - Trade recording — trade history integrity
+
+---
+
+## Roadmap
+
+### Correctness
+
+| Item | Detail |
+|------|--------|
+| FOK partial fill | FOK cancels only when zero trades occur. It must also cancel when the order partially fills but does not fill completely. |
+| `cancel_order` book cleanup | Cancelled orders are not removed from buy/sell price-level queues. They remain as stale entries and are re-evaluated during subsequent matching calls. |
+
+### Indexing & Queries
+
+Every query other than lookup-by-ID currently requires an O(n) scan of the full order map.
+
+| Item | Detail |
+|------|--------|
+| Secondary index by `user_id` | Enables `get_orders_by_user(user_id)` — required for per-user position views |
+| Secondary index by `item_id` + status | Enables `get_open_orders_for_item(item_id)` — required for efficient book management |
+| Order book depth snapshot | `get_depth(item_id, levels)` returning top N bid/ask price levels with aggregated volume at each level |
+
+### Features
+
+| Item | Detail |
+|------|--------|
+| DAY order expiration enforcement | `expires_at` is set on DAY orders but never checked. Requires an explicit `expire_orders()` sweep to remove stale orders from the book. |
+| Stop orders | `StopLoss` and `StopLimit` variants with a trigger price field; activates the order when the market reaches the trigger. |
+| Serde support | `#[derive(Serialize, Deserialize)]` on all public types, behind an optional `serde` feature flag. |
+
+### Infrastructure
+
+| Item | Detail |
+|------|--------|
+| Thread safety | `OrderBookService` is not `Sync`. An `Arc<Mutex<OrderBookService>>` wrapper or a channel-based design is needed for concurrent order acceptance. |
