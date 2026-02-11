@@ -332,16 +332,17 @@ impl OrderBookService {
         }
 
         let updated_incoming_order = self.get_order_by_id(incoming_order.id);
+        let updated_incoming_order = updated_incoming_order.unwrap().clone();
 
         if trades.len() > 0 && matches!(incoming_order.time_in_force, TimeInForce::IOC) {
-            self.update_order_quantity(
-                incoming_order.id,
-                updated_incoming_order.unwrap().quantity_filled,
-            );
+            self.update_order_quantity(incoming_order.id, updated_incoming_order.quantity_filled);
             self.update_order_status(incoming_order.id, OrderStatus::Closed);
         }
 
-        if trades.len() == 0 && matches!(incoming_order.time_in_force, TimeInForce::FOK) {
+        if trades.len() == 0 && matches!(incoming_order.time_in_force, TimeInForce::FOK)
+            || matches!(incoming_order.time_in_force, TimeInForce::FOK)
+                && updated_incoming_order.quantity_filled != updated_incoming_order.quantity
+        {
             self.cancel_order(incoming_order.id);
         }
 
