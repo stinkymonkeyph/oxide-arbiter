@@ -1,3 +1,5 @@
 pub mod dto;
 pub mod services;
-pub mod services_test;
+
+#[cfg(test)]
+mod services_test;

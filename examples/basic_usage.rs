@@ -1,7 +1,4 @@
-mod components;
-
-use crate::components::services::OrderBookService;
-use components::dto::{CreateOrderRequest, OrderSide, OrderType, TimeInForce};
+use oxide_arbiter::{CreateOrderRequest, OrderBookService, OrderSide, OrderType, TimeInForce};
 
 fn main() {
     let mut order_book = OrderBookService::new();

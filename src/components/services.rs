@@ -17,7 +17,6 @@ pub struct OrderBookService {
     pub trades: Vec<Trade>,
 }
 
-#[allow(dead_code)]
 impl OrderBookService {
     pub fn new() -> Self {
         OrderBookService {

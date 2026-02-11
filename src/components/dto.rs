@@ -2,12 +2,15 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
 pub enum TimeInForce {
-    GTC, // Good Till Cancelled
-    IOC, // Immediate Or Cancel
-    FOK, // Fill Or Kill
-    DAY, // Day Order
+    /// Remains active until cancelled or fully filled.
+    GTC,
+    /// Executes immediately; any unfilled remainder is cancelled.
+    IOC,
+    /// Must fill in full immediately or the entire order is cancelled.
+    FOK,
+    /// Expires 24 hours after submission.
+    DAY,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -17,7 +20,6 @@ pub enum OrderSide {
 }
 
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
 pub enum OrderStatus {
     Open,
     PartiallyFilled,
@@ -26,14 +28,12 @@ pub enum OrderStatus {
 }
 
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
 pub enum OrderType {
     Limit,
     Market,
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct Order {
     pub id: Uuid,
     pub item_id: Uuid,
@@ -51,7 +51,6 @@ pub struct Order {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct Trade {
     pub id: Uuid,
     pub buy_order_id: Uuid,
@@ -62,7 +61,6 @@ pub struct Trade {
     pub timestamp: chrono::DateTime<Utc>,
 }
 
-#[allow(dead_code)]
 pub struct CreateOrderRequest {
     pub item_id: Uuid,
     pub user_id: Uuid,

@@ -2,6 +2,12 @@
 name = "oxide-arbiter"
 version = "0.1.0"
 edition = "2024"
+description = "A CLOB order matching engine with price-time priority, limit/market orders, and four time-in-force policies."
+license = "MIT"
+keywords = ["order-book", "matching-engine", "trading", "clob", "finance"]
+categories = ["algorithms", "data-structures"]
+repository = "https://github.com/YOUR_USERNAME/oxide-arbiter"
+readme = "README.md"
 
 [dependencies]
 chrono = "0.4.43"
