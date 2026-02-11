@@ -149,6 +149,21 @@ trades: Vec<Trade>
 
 ---
 
+## Installation
+
+```sh
+cargo add oxide-arbiter
+```
+
+Or add manually to `Cargo.toml`:
+
+```toml
+[dependencies]
+oxide-arbiter = "0.1.0-beta.1"
+```
+
+---
+
 ## Usage
 
 ```rust
