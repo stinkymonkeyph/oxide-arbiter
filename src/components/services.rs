@@ -328,8 +328,15 @@ impl OrderBookService {
 
                 matched_trade_list.insert(trade_index, resting_order_snapshot);
 
-                staged_order_to_fill.insert(resting_order.id, trade_quantity);
-                staged_order_to_fill.insert(incoming_order.id, trade_quantity);
+                staged_order_to_fill
+                    .entry(resting_order.id)
+                    .and_modify(|q| *q += trade_quantity)
+                    .or_insert(trade_quantity);
+
+                staged_order_to_fill
+                    .entry(incoming_order.id)
+                    .and_modify(|q| *q += trade_quantity)
+                    .or_insert(trade_quantity);
 
                 if let Some(order) = self.get_order_by_id(incoming_order.id) {
                     let mut quantity_filled = order.quantity_filled.clone();
@@ -351,9 +358,6 @@ impl OrderBookService {
         {
             self.cancel_order(incoming_order.id);
             performed_reversal = true;
-            for (trade_index, _) in matched_trade_list.clone().into_iter() {
-                self.trades.remove(trade_index);
-            }
         }
 
         if !performed_reversal {
@@ -363,12 +367,11 @@ impl OrderBookService {
             for (_, order) in matched_trade_list {
                 self.remove_from_book(order.id);
             }
+            self.trades.append(&mut trades);
         }
 
         if incoming_order.quantity_filled == incoming_order.quantity {
             self.remove_from_book(incoming_order.id);
         }
-
-        self.trades.append(&mut trades);
     }
 }
