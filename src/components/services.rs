@@ -175,6 +175,7 @@ impl OrderBookService {
         if let Some(order) = self.get_mutable_order_by_id(order_id) {
             order.status = OrderStatus::Cancelled;
             order.updated_at = Utc::now();
+            self.remove_from_book(order_id);
             true
         } else {
             false
