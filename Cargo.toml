@@ -6,7 +6,7 @@ description = "A CLOB order matching engine with price-time priority, limit/mark
 license = "MIT"
 keywords = ["order-book", "matching-engine", "trading", "clob", "finance"]
 categories = ["algorithms", "data-structures"]
-repository = "https://github.com/YOUR_USERNAME/oxide-arbiter"
+repository = "https://github.com/stinkymonkeyph/oxide-arbiter"
 readme = "README.md"
 
 [dependencies]
