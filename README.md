@@ -226,7 +226,7 @@ cargo test
 
 ---
 
-## Roadmap
+## Todos
 
 ### Indexing & Queries
 
@@ -245,9 +245,11 @@ Every query other than lookup-by-ID currently requires an O(n) scan of the full 
 | DAY order expiration enforcement | `expires_at` is set on DAY orders but never checked. Requires an explicit `expire_orders()` sweep to remove stale orders from the book. |
 | Stop orders | `StopLoss` and `StopLimit` variants with a trigger price field; activates the order when the market reaches the trigger. |
 | Serde support | `#[derive(Serialize, Deserialize)]` on all public types, behind an optional `serde` feature flag. |
+| `f32` → `f64` precision | All prices and quantities use `f32`. Financial systems typically require `f64` or fixed-point arithmetic to avoid precision loss at scale. |
 
 ### Infrastructure
 
 | Item | Detail |
 |------|--------|
 | Thread safety | `OrderBookService` is not `Sync`. An `Arc<Mutex<OrderBookService>>` wrapper or a channel-based design is needed for concurrent order acceptance. |
+| Benchmarks | No performance benchmarks exist. A `criterion`-based suite would establish baseline throughput and catch regressions. |
