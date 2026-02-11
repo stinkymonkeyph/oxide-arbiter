@@ -229,7 +229,6 @@ cargo test
 
 | Item | Detail |
 |------|--------|
-| FOK partial fill | FOK cancels only when zero trades occur. It must also cancel when the order partially fills but does not fill completely. |
 | `cancel_order` book cleanup | Cancelled orders are not removed from buy/sell price-level queues. They remain as stale entries and are re-evaluated during subsequent matching calls. |
 
 ### Indexing & Queries
