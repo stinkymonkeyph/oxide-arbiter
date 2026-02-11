@@ -45,10 +45,13 @@ trades: Vec<Trade>                          // append-only execution history
 3. Insert the incoming order into `orders`.
 4. Iterate compatible resting orders; for each match:
    - Calculate `min(incoming_remaining, resting_remaining)`.
+   - Stage the fill quantity (accumulated per order ID).
    - Create a `Trade` record.
-   - Update `quantity_filled` and `status` on both orders.
-5. Apply time-in-force rules post-match (IOC cancels remainder; FOK cancels if no fills occurred).
-6. If the order is still open or partially filled, push it onto the appropriate book.
+5. Validate time-in-force rules before committing:
+   - IOC: if any fills staged, trim order quantity to filled amount and mark Closed.
+   - FOK: if staged fills don't cover the full quantity, cancel the order and discard all staged fills and trades.
+6. Commit: apply staged fills, remove matched resting orders from the book, and append trades.
+7. If the incoming order is fully filled, remove it from the book.
 
 ---
 
@@ -224,12 +227,6 @@ cargo test
 ---
 
 ## Roadmap
-
-### Correctness
-
-| Item | Detail |
-|------|--------|
-| `cancel_order` book cleanup | Cancelled orders are not removed from buy/sell price-level queues. They remain as stale entries and are re-evaluated during subsequent matching calls. |
 
 ### Indexing & Queries
 
