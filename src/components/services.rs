@@ -219,8 +219,7 @@ impl OrderBookService {
         }
     }
 
-    fn fill_order(&mut self, order_id: Uuid, quantity_filled: f32) -> Option<Order> {
-        let order_filled: Option<Order>;
+    fn fill_order(&mut self, order_id: Uuid, quantity_filled: f32) -> Option<&mut Order> {
         let should_remove: bool = if let Some(order) = self.get_mutable_order_by_id(order_id) {
             order.quantity_filled += quantity_filled;
 
@@ -231,7 +230,6 @@ impl OrderBookService {
             }
 
             order.updated_at = Utc::now();
-            order_filled = Some(order.clone());
             order.quantity_filled >= order.quantity
         } else {
             return None;
@@ -241,7 +239,7 @@ impl OrderBookService {
             self.remove_from_book(order_id);
         }
 
-        order_filled
+        self.get_mutable_order_by_id(order_id)
     }
 
     fn can_match_price(&self, incoming: &Order, resting: &Order) -> bool {
@@ -276,12 +274,13 @@ impl OrderBookService {
             let order_queue = &price_maps[price];
 
             for resting_order in order_queue {
-                let order = self.get_mutable_order_by_id(resting_order.id);
+                let resting_order = self.get_order_by_id(resting_order.id);
 
-                if !order.is_some() {
+                if !resting_order.is_some() {
                     break;
                 }
 
+                let resting_order = resting_order.unwrap();
                 let is_match = self.can_match_price(incoming_order, resting_order);
 
                 if !is_match {
@@ -322,13 +321,12 @@ impl OrderBookService {
                     timestamp: Utc::now(),
                 });
 
-                let mut resting_quantity_filled = resting_order.quantity_filled;
-                resting_quantity_filled += trade_quantity;
-                self.fill_order(resting_order.id, resting_quantity_filled);
-
-                let mut incoming_quantity_filled = incoming_order.quantity_filled;
-                incoming_quantity_filled += trade_quantity;
-                self.fill_order(incoming_order.id, incoming_quantity_filled);
+                self.fill_order(resting_order.id, trade_quantity);
+                self.fill_order(incoming_order.id, trade_quantity);
+                if let Some(order) = self.get_mutable_order_by_id(incoming_order.id) {
+                    incoming_order.quantity = order.quantity;
+                    incoming_order.quantity_filled = order.quantity_filled;
+                }
             }
         }
 
@@ -346,6 +344,6 @@ impl OrderBookService {
             self.cancel_order(incoming_order.id);
         }
 
-        self.trades = trades;
+        self.trades.append(&mut trades);
     }
 }
