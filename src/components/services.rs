@@ -221,7 +221,7 @@ impl OrderBookService {
     }
 
     fn fill_order(&mut self, order_id: Uuid, quantity_filled: f32) -> Option<&mut Order> {
-        let should_remove: bool = if let Some(order) = self.get_mutable_order_by_id(order_id) {
+        if let Some(order) = self.get_mutable_order_by_id(order_id) {
             order.quantity_filled += quantity_filled;
 
             if order.quantity_filled >= order.quantity {
@@ -235,10 +235,6 @@ impl OrderBookService {
         } else {
             return None;
         };
-
-        if should_remove {
-            self.remove_from_book(order_id);
-        }
 
         self.get_mutable_order_by_id(order_id)
     }
@@ -271,6 +267,8 @@ impl OrderBookService {
             OrderSide::Sell => price_maps.keys().cloned().rev().collect(),
         };
 
+        let mut matched_trade_list: HashMap<usize, Order> = HashMap::new();
+
         for price in &prices {
             let order_queue = &price_maps[price];
 
@@ -282,6 +280,8 @@ impl OrderBookService {
                 }
 
                 let resting_order = resting_order.unwrap();
+                let resting_order_snapshot = resting_order.clone();
+
                 let is_match = self.can_match_price(incoming_order, resting_order);
 
                 if !is_match {
@@ -304,8 +304,11 @@ impl OrderBookService {
                     break;
                 }
 
+                let trade_id = Uuid::new_v4();
+                let trade_index = trades.len();
+
                 trades.push(Trade {
-                    id: Uuid::new_v4(),
+                    id: trade_id,
                     buy_order_id: if matches!(incoming_order.order_side, OrderSide::Buy) {
                         incoming_order.id
                     } else {
@@ -322,6 +325,8 @@ impl OrderBookService {
                     timestamp: Utc::now(),
                 });
 
+                matched_trade_list.insert(trade_index, resting_order_snapshot);
+
                 self.fill_order(resting_order.id, trade_quantity);
                 self.fill_order(incoming_order.id, trade_quantity);
                 if let Some(order) = self.get_mutable_order_by_id(incoming_order.id) {
@@ -333,6 +338,7 @@ impl OrderBookService {
 
         let updated_incoming_order = self.get_order_by_id(incoming_order.id);
         let updated_incoming_order = updated_incoming_order.unwrap().clone();
+        let mut performed_reversal = false;
 
         if trades.len() > 0 && matches!(incoming_order.time_in_force, TimeInForce::IOC) {
             self.update_order_quantity(incoming_order.id, updated_incoming_order.quantity_filled);
@@ -344,6 +350,20 @@ impl OrderBookService {
                 && updated_incoming_order.quantity_filled != updated_incoming_order.quantity
         {
             self.cancel_order(incoming_order.id);
+            performed_reversal = true;
+            for (trade_index, _) in matched_trade_list.clone().into_iter() {
+                self.trades.remove(trade_index);
+            }
+        }
+
+        if !performed_reversal {
+            for (_, order) in matched_trade_list {
+                self.remove_from_book(order.id);
+            }
+        }
+
+        if incoming_order.quantity_filled == incoming_order.quantity {
+            self.remove_from_book(incoming_order.id);
         }
 
         self.trades.append(&mut trades);
