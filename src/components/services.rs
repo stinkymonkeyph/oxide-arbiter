@@ -12,9 +12,8 @@ use uuid::Uuid;
 
 pub struct OrderBookService {
     orders: HashMap<Uuid, Order>,
-    buy_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>,
-    sell_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>,
-    /// All trades executed since the service was created. Appended to on each `add_order` call.
+    buy_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Uuid>>>,
+    sell_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Uuid>>>,
     pub trades: Vec<Trade>,
 }
 
@@ -99,7 +98,7 @@ impl OrderBookService {
                         .or_default()
                         .entry(OrderedFloat(updated_order.price))
                         .or_default()
-                        .push_back(updated_order.clone());
+                        .push_back(updated_order.id);
                 }
                 OrderSide::Sell => {
                     self.sell_orders
@@ -107,7 +106,7 @@ impl OrderBookService {
                         .or_default()
                         .entry(OrderedFloat(updated_order.price))
                         .or_default()
-                        .push_back(updated_order.clone());
+                        .push_back(updated_order.id);
                 }
             }
         }
@@ -219,7 +218,7 @@ impl OrderBookService {
 
         if let Some(price_map) = book.get_mut(&item_id) {
             if let Some(order_queue) = price_map.get_mut(&price) {
-                order_queue.retain(|o| o.id != order_id);
+                order_queue.retain(|order_id_from_queue| order_id_from_queue.clone() != order_id);
 
                 if order_queue.is_empty() {
                     price_map.remove(&price);
@@ -285,8 +284,8 @@ impl OrderBookService {
         for price in &prices {
             let order_queue = &price_maps[price];
 
-            for resting_order in order_queue {
-                let resting_order = self.get_order_by_id(resting_order.id);
+            for resting_order_id in order_queue {
+                let resting_order = self.get_order_by_id(resting_order_id.clone());
 
                 if !resting_order.is_some() {
                     break;
