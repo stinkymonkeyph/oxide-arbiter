@@ -28,8 +28,8 @@ oxide-arbiter implements a Centralized Limit Order Book (CLOB) with price-time p
 ```
 orders: HashMap<Uuid, Order>               // source of truth; O(1) lookup by ID
 
-buy_orders:  HashMap<item_id, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>
-sell_orders: HashMap<item_id, BTreeMap<OrderedFloat<f32>, VecDeque<Order>>>
+buy_orders:  HashMap<item_id, BTreeMap<Decimal, VecDeque<Uuid>>>
+sell_orders: HashMap<item_id, BTreeMap<Decimal, VecDeque<Uuid>>>
 
 trades: Vec<Trade>                          // append-only execution history
 ```
@@ -83,9 +83,9 @@ enum TimeInForce { GTC, IOC, FOK, DAY }
 | `order_side` | `OrderSide` | Buy or Sell |
 | `order_type` | `OrderType` | Limit or Market |
 | `time_in_force` | `TimeInForce` | Execution policy |
-| `price` | `f32` | Limit price (market orders normalized to resting price) |
-| `quantity` | `f32` | Requested quantity |
-| `quantity_filled` | `f32` | Executed quantity |
+| `price` | `Decimal` | Limit price (market orders normalized to resting price) |
+| `quantity` | `Decimal` | Requested quantity |
+| `quantity_filled` | `Decimal` | Executed quantity |
 | `status` | `OrderStatus` | Current lifecycle state |
 | `created_at` | `DateTime<Utc>` | Creation timestamp |
 | `updated_at` | `DateTime<Utc>` | Last modification timestamp |
@@ -99,8 +99,8 @@ enum TimeInForce { GTC, IOC, FOK, DAY }
 | `buy_order_id` | `Uuid` | Matched buy order |
 | `sell_order_id` | `Uuid` | Matched sell order |
 | `item_id` | `Uuid` | Asset matched |
-| `quantity` | `f32` | Execution size |
-| `price` | `f32` | Execution price (resting order's price) |
+| `quantity` | `Decimal` | Execution size |
+| `price` | `Decimal` | Execution price (resting order's price) |
 | `timestamp` | `DateTime<Utc>` | Execution timestamp |
 
 ### CreateOrderRequest
@@ -111,8 +111,8 @@ enum TimeInForce { GTC, IOC, FOK, DAY }
 | `user_id` | `Uuid` |
 | `order_side` | `OrderSide` |
 | `order_type` | `OrderType` |
-| `price` | `f32` |
-| `quantity` | `f32` |
+| `price` | `Decimal` |
+| `quantity` | `Decimal` |
 | `time_in_force` | `TimeInForce` |
 
 ---
@@ -129,13 +129,13 @@ add_order(&mut self, req: CreateOrderRequest) -> Result<Order, String>
 // Queries
 get_orders(&self) -> &HashMap<Uuid, Order>
 get_order_by_id(&self, order_id: Uuid) -> Option<&Order>
-get_current_market_price(&self, item_id: Uuid, side: OrderSide) -> Option<f32>
+get_current_market_price(&self, item_id: Uuid, side: OrderSide) -> Option<Decimal>
 
 // Mutations
 cancel_order(&mut self, order_id: Uuid) -> bool
 update_order_status(&mut self, order_id: Uuid, status: OrderStatus) -> Option<&Order>
-update_order_quantity(&mut self, order_id: Uuid, quantity: f32) -> Option<&Order>
-update_order_price(&mut self, order_id: Uuid, price: f32) -> Option<&Order>
+update_order_quantity(&mut self, order_id: Uuid, quantity: Decimal) -> Option<&Order>
+update_order_price(&mut self, order_id: Uuid, price: Decimal) -> Option<&Order>
 
 // Trade history (public field)
 trades: Vec<Trade>
@@ -171,6 +171,8 @@ oxide-arbiter = "0.1.0-beta.1"
 
 ```rust
 use oxide_arbiter::{CreateOrderRequest, OrderBookService, OrderSide, OrderType, TimeInForce};
+use rust_decimal::Decimal;
+use std::str::FromStr;
 
 let mut book = OrderBookService::new();
 let asset_id = uuid::Uuid::new_v4();
@@ -183,8 +185,8 @@ let buy = book.add_order(CreateOrderRequest {
     order_side: OrderSide::Buy,
     order_type: OrderType::Limit,
     time_in_force: TimeInForce::GTC,
-    price: 100.0,
-    quantity: 50.0,
+    price: Decimal::from_str("100.0").unwrap(),
+    quantity: Decimal::from_str("50.0").unwrap(),
 }).unwrap();
 
 // Incoming sell limit order — matches immediately
@@ -194,8 +196,8 @@ let sell = book.add_order(CreateOrderRequest {
     order_side: OrderSide::Sell,
     order_type: OrderType::Limit,
     time_in_force: TimeInForce::GTC,
-    price: 100.0,
-    quantity: 50.0,
+    price: Decimal::from_str("100.0").unwrap(),
+    quantity: Decimal::from_str("50.0").unwrap(),
 }).unwrap();
 
 // Inspect executed trades
@@ -245,7 +247,6 @@ Every query other than lookup-by-ID currently requires an O(n) scan of the full 
 | DAY order expiration enforcement | `expires_at` is set on DAY orders but never checked. Requires an explicit `expire_orders()` sweep to remove stale orders from the book. |
 | Stop orders | `StopLoss` and `StopLimit` variants with a trigger price field; activates the order when the market reaches the trigger. |
 | Serde support | `#[derive(Serialize, Deserialize)]` on all public types, behind an optional `serde` feature flag. |
-| `f32` → `f64` precision | All prices and quantities use `f32`. Financial systems typically require `f64` or fixed-point arithmetic to avoid precision loss at scale. |
 
 ### Infrastructure
 
