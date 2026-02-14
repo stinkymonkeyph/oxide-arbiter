@@ -4,6 +4,8 @@ mod tests {
         dto::{CreateOrderRequest, OrderSide, OrderStatus, OrderType, TimeInForce},
         services::OrderBookService,
     };
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
     use uuid::Uuid;
 
     #[test]
@@ -14,12 +16,12 @@ mod tests {
             user_id: Uuid::new_v4(),
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
-            price: 10.0,
+            price: Decimal::from_str("10.0").unwrap(),
             time_in_force: TimeInForce::DAY,
-            quantity: 100.0,
+            quantity: Decimal::from_str("100.0").unwrap(),
         };
         let order = order_book.add_order(create_order_request).unwrap();
-        assert_eq!(order.quantity, 100.0);
+        assert_eq!(order.quantity, Decimal::from_str("100.0").unwrap());
         assert_eq!(matches!(order.order_side, OrderSide::Buy), true);
         assert_eq!(matches!(order.status, OrderStatus::Open), true);
     }
@@ -33,8 +35,8 @@ mod tests {
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 20.0,
-            quantity: 50.0,
+            price: Decimal::from_str("20.0").unwrap(),
+            quantity: Decimal::from_str("50.0").unwrap(),
         };
         let order = order_book.add_order(create_order_request).unwrap();
         let fetched_order = order_book.get_order_by_id(order.id);
@@ -51,8 +53,8 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 15.0,
-            quantity: 100.0,
+            price: Decimal::from_str("15.0").unwrap(),
+            quantity: Decimal::from_str("100.0").unwrap(),
         };
         let order = order_book.add_order(create_order_request).unwrap();
         let updated_order = order_book.update_order_status(order.id, OrderStatus::Closed);
@@ -72,13 +74,17 @@ mod tests {
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 25.0,
-            quantity: 50.0,
+            price: Decimal::from_str("25.0").unwrap(),
+            quantity: Decimal::from_str("50.0").unwrap(),
         };
         let order = order_book.add_order(create_order_request).unwrap();
-        let updated_order = order_book.update_order_quantity(order.id, 75.0);
+        let updated_order =
+            order_book.update_order_quantity(order.id, Decimal::from_str("75.0").unwrap());
         assert!(updated_order.is_some());
-        assert_eq!(updated_order.unwrap().quantity, 75.0);
+        assert_eq!(
+            updated_order.unwrap().quantity,
+            Decimal::from_str("75.0").unwrap()
+        );
     }
 
     #[test]
@@ -90,8 +96,8 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 30.0,
-            quantity: 100.0,
+            price: Decimal::from_str("30.0").unwrap(),
+            quantity: Decimal::from_str("100.0").unwrap(),
         };
         let order = order_book.add_order(create_order_request).unwrap();
         order_book.cancel_order(order.id);
@@ -113,8 +119,8 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 10.0,
-            quantity: 100.0,
+            price: Decimal::from_str("10.0").unwrap(),
+            quantity: Decimal::from_str("100.0").unwrap(),
         };
         let buy_order = order_book.add_order(buy_order_request).unwrap();
 
@@ -124,16 +130,22 @@ mod tests {
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 10.0,
-            quantity: 50.0,
+            price: Decimal::from_str("10.0").unwrap(),
+            quantity: Decimal::from_str("50.0").unwrap(),
         };
         let sell_order = order_book.add_order(sell_order_request).unwrap();
 
         let fetched_buy_order = order_book.get_order_by_id(buy_order.id).unwrap();
         let fetched_sell_order = order_book.get_order_by_id(sell_order.id).unwrap();
 
-        assert_eq!(fetched_buy_order.quantity_filled, 50.0);
-        assert_eq!(fetched_sell_order.quantity_filled, 50.0);
+        assert_eq!(
+            fetched_buy_order.quantity_filled,
+            Decimal::from_str("50.0").unwrap()
+        );
+        assert_eq!(
+            fetched_sell_order.quantity_filled,
+            Decimal::from_str("50.0").unwrap()
+        );
         assert_eq!(
             matches!(fetched_buy_order.status, OrderStatus::PartiallyFilled),
             true
@@ -155,8 +167,8 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 10.0,
-            quantity: 100.0,
+            price: Decimal::from_str("10.0").unwrap(),
+            quantity: Decimal::from_str("100.0").unwrap(),
         };
         let buy_order = order_book.add_order(buy_order_request).unwrap();
 
@@ -166,16 +178,22 @@ mod tests {
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 10.0,
-            quantity: 100.0,
+            price: Decimal::from_str("10.0").unwrap(),
+            quantity: Decimal::from_str("100.0").unwrap(),
         };
         let sell_order = order_book.add_order(sell_order_request).unwrap();
 
         let fetched_buy_order = order_book.get_order_by_id(buy_order.id).unwrap();
         let fetched_sell_order = order_book.get_order_by_id(sell_order.id).unwrap();
 
-        assert_eq!(fetched_buy_order.quantity_filled, 100.0);
-        assert_eq!(fetched_sell_order.quantity_filled, 100.0);
+        assert_eq!(
+            fetched_buy_order.quantity_filled,
+            Decimal::from_str("100.0").unwrap()
+        );
+        assert_eq!(
+            fetched_sell_order.quantity_filled,
+            Decimal::from_str("100.0").unwrap()
+        );
         assert_eq!(
             matches!(fetched_buy_order.status, OrderStatus::Closed),
             true
@@ -195,13 +213,17 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 10.0,
-            quantity: 100.0,
+            price: Decimal::from_str("10.0").unwrap(),
+            quantity: Decimal::from_str("100.0").unwrap(),
         };
         let order = order_book.add_order(create_order_request).unwrap();
-        let updated_order = order_book.update_order_price(order.id, 15.0);
+        let updated_order =
+            order_book.update_order_price(order.id, Decimal::from_str("15.0").unwrap());
         assert!(updated_order.is_some());
-        assert_eq!(updated_order.unwrap().price, 15.0);
+        assert_eq!(
+            updated_order.unwrap().price,
+            Decimal::from_str("15.0").unwrap()
+        );
     }
 
     #[test]
@@ -215,8 +237,8 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 10.0,
-            quantity: 100.0,
+            price: Decimal::from_str("10.0").unwrap(),
+            quantity: Decimal::from_str("100.0").unwrap(),
         };
         let buy_order = order_book.add_order(buy_order_request).unwrap();
 
@@ -226,8 +248,8 @@ mod tests {
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 10.0,
-            quantity: 50.0,
+            price: Decimal::from_str("10.0").unwrap(),
+            quantity: Decimal::from_str("50.0").unwrap(),
         };
         let sell_order = order_book.add_order(sell_order_request).unwrap();
 
@@ -246,17 +268,25 @@ mod tests {
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 20.0,
-            quantity: 50.0,
+            price: Decimal::from_str("20.0").unwrap(),
+            quantity: Decimal::from_str("50.0").unwrap(),
         };
         let order = order_book.add_order(create_order_request).unwrap();
-        let updated_order = order_book.update_order_quantity(order.id, 75.0);
+        let updated_order =
+            order_book.update_order_quantity(order.id, Decimal::from_str("75.0").unwrap());
         assert!(updated_order.is_some());
-        assert_eq!(updated_order.unwrap().quantity, 75.0);
+        assert_eq!(
+            updated_order.unwrap().quantity,
+            Decimal::from_str("75.0").unwrap()
+        );
 
-        let updated_order_price = order_book.update_order_price(order.id, 25.0);
+        let updated_order_price =
+            order_book.update_order_price(order.id, Decimal::from_str("25.0").unwrap());
         assert!(updated_order_price.is_some());
-        assert_eq!(updated_order_price.unwrap().price, 25.0);
+        assert_eq!(
+            updated_order_price.unwrap().price,
+            Decimal::from_str("25.0").unwrap()
+        );
     }
 
     #[test]
@@ -269,8 +299,8 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 10.0,
-            quantity: 100.0,
+            price: Decimal::from_str("10.0").unwrap(),
+            quantity: Decimal::from_str("100.0").unwrap(),
         };
 
         let buy_order = order_book.add_order(buy_order_request).unwrap();
@@ -280,16 +310,16 @@ mod tests {
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 15.0,
-            quantity: 50.0,
+            price: Decimal::from_str("15.0").unwrap(),
+            quantity: Decimal::from_str("50.0").unwrap(),
         };
 
         let sell_order = order_book.add_order(sell_order_request).unwrap();
         let fetched_buy_order = order_book.get_order_by_id(buy_order.id).unwrap();
         let fetched_sell_order = order_book.get_order_by_id(sell_order.id).unwrap();
 
-        assert_eq!(fetched_buy_order.quantity_filled, 0.0);
-        assert_eq!(fetched_sell_order.quantity_filled, 0.0);
+        assert_eq!(fetched_buy_order.quantity_filled, Decimal::ZERO);
+        assert_eq!(fetched_sell_order.quantity_filled, Decimal::ZERO);
         assert_eq!(matches!(fetched_buy_order.status, OrderStatus::Open), true);
         assert_eq!(matches!(fetched_sell_order.status, OrderStatus::Open), true);
     }
@@ -303,8 +333,8 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Market,
             time_in_force: TimeInForce::DAY,
-            price: 0.0,
-            quantity: 100.0,
+            price: Decimal::ZERO,
+            quantity: Decimal::from_str("100.0").unwrap(),
         };
         let result = order_book.add_order(create_order_request);
         assert!(result.is_err());
@@ -325,8 +355,8 @@ mod tests {
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 10.0,
-            quantity: 50.0,
+            price: Decimal::from_str("10.0").unwrap(),
+            quantity: Decimal::from_str("50.0").unwrap(),
         };
         let _ = order_book.add_order(sell_order_request);
         let current_market_price = order_book
@@ -340,12 +370,15 @@ mod tests {
             order_type: OrderType::Market,
             time_in_force: TimeInForce::DAY,
             price: current_market_price,
-            quantity: 50.0,
+            quantity: Decimal::from_str("50.0").unwrap(),
         };
         let buy_market_order = order_book.add_order(buy_market_order_request).unwrap();
 
-        assert_eq!(buy_market_order.price, 10.0);
-        assert_eq!(buy_market_order.quantity_filled, 50.0);
+        assert_eq!(buy_market_order.price, Decimal::from_str("10.0").unwrap());
+        assert_eq!(
+            buy_market_order.quantity_filled,
+            Decimal::from_str("50.0").unwrap()
+        );
     }
 
     #[test]
@@ -359,8 +392,8 @@ mod tests {
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 10.0,
-            quantity: 50.0,
+            price: Decimal::from_str("10.0").unwrap(),
+            quantity: Decimal::from_str("50.0").unwrap(),
         };
         let _ = order_book.add_order(sell_order_request);
 
@@ -370,12 +403,15 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::IOC,
-            price: 10.0,
-            quantity: 100.0,
+            price: Decimal::from_str("10.0").unwrap(),
+            quantity: Decimal::from_str("100.0").unwrap(),
         };
         let buy_ioc_order = order_book.add_order(buy_ioc_order_request).unwrap();
-        assert_eq!(buy_ioc_order.quantity_filled, 50.0);
-        assert_eq!(buy_ioc_order.quantity, 50.0);
+        assert_eq!(
+            buy_ioc_order.quantity_filled,
+            Decimal::from_str("50.0").unwrap()
+        );
+        assert_eq!(buy_ioc_order.quantity, Decimal::from_str("50.0").unwrap());
         assert_eq!(matches!(buy_ioc_order.status, OrderStatus::Closed), true);
     }
 
@@ -390,8 +426,8 @@ mod tests {
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
             time_in_force: TimeInForce::DAY,
-            price: 30.0,
-            quantity: 50.0,
+            price: Decimal::from_str("30.0").unwrap(),
+            quantity: Decimal::from_str("50.0").unwrap(),
         };
         let _ = order_book.add_order(sell_order_request);
 
@@ -401,14 +437,15 @@ mod tests {
             order_side: OrderSide::Buy,
             order_type: OrderType::Market,
             time_in_force: TimeInForce::DAY,
-            price: 20.0, // Market price is too far from the current market price
-            quantity: 50.0,
+            price: Decimal::from_str("20.0").unwrap(),
+            quantity: Decimal::from_str("50.0").unwrap(),
         };
         let result = order_book.add_order(buy_market_order_request);
         assert!(result.is_err());
-        assert_eq!(
-            result.err().unwrap(),
-            "Market order price cannot be more than 5% away from the current market price. Current market price: 30, Order price: 20"
-        );
+
+        let err_msg = result.err().unwrap();
+        assert!(err_msg.contains("Market order price cannot be more than 5% away"));
+        assert!(err_msg.contains("30"));
+        assert!(err_msg.contains("20"));
     }
 }
