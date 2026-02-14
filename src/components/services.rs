@@ -1,19 +1,20 @@
 use std::{
     cmp::min,
     collections::{BTreeMap, HashMap, VecDeque},
+    str::FromStr,
 };
 
 use crate::components::dto::{
     CreateOrderRequest, Order, OrderSide, OrderStatus, OrderType, TimeInForce, Trade,
 };
 use chrono::{DateTime, Utc};
-use ordered_float::OrderedFloat;
+use rust_decimal::Decimal;
 use uuid::Uuid;
 
 pub struct OrderBookService {
     orders: HashMap<Uuid, Order>,
-    buy_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Uuid>>>,
-    sell_orders: HashMap<Uuid, BTreeMap<OrderedFloat<f32>, VecDeque<Uuid>>>,
+    buy_orders: HashMap<Uuid, BTreeMap<Decimal, VecDeque<Uuid>>>,
+    sell_orders: HashMap<Uuid, BTreeMap<Decimal, VecDeque<Uuid>>>,
     pub trades: Vec<Trade>,
 }
 
@@ -28,11 +29,11 @@ impl OrderBookService {
     }
 
     pub fn add_order(&mut self, create_order_request: CreateOrderRequest) -> Result<Order, String> {
-        if create_order_request.price < 0.0 {
+        if create_order_request.price < Decimal::ZERO {
             return Err("Price cannot be negative".to_string());
         }
 
-        if create_order_request.quantity <= 0.0 {
+        if create_order_request.quantity <= Decimal::ZERO {
             return Err("Quantity must be greater than zero".to_string());
         }
 
@@ -50,7 +51,7 @@ impl OrderBookService {
             order_type: create_order_request.order_type,
             price: create_order_request.price,
             quantity: create_order_request.quantity,
-            quantity_filled: 0.0,
+            quantity_filled: Decimal::ZERO,
             time_in_force: create_order_request.time_in_force,
             status: OrderStatus::Open,
             created_at: Utc::now(),
@@ -64,10 +65,10 @@ impl OrderBookService {
                     let price_difference = match order.order_side {
                         OrderSide::Buy if market_price > order.price => market_price - order.price,
                         OrderSide::Sell if market_price < order.price => order.price - market_price,
-                        _ => 0.0,
+                        _ => Decimal::ZERO,
                     };
 
-                    if price_difference > (order.price * 0.05) {
+                    if price_difference > (order.price * Decimal::from_str("0.05").unwrap()) {
                         return Err(format!(
                             "Market order price cannot be more than 5% away from the current market price. Current market price: {}, Order price: {}",
                             market_price, order.price
@@ -96,7 +97,7 @@ impl OrderBookService {
                     self.buy_orders
                         .entry(updated_order.item_id)
                         .or_default()
-                        .entry(OrderedFloat(updated_order.price))
+                        .entry(updated_order.price)
                         .or_default()
                         .push_back(updated_order.id);
                 }
@@ -104,7 +105,7 @@ impl OrderBookService {
                     self.sell_orders
                         .entry(updated_order.item_id)
                         .or_default()
-                        .entry(OrderedFloat(updated_order.price))
+                        .entry(updated_order.price)
                         .or_default()
                         .push_back(updated_order.id);
                 }
@@ -128,22 +129,20 @@ impl OrderBookService {
         }
     }
 
-    pub fn get_current_market_price(&self, item_id: Uuid, order_side: OrderSide) -> Option<f32> {
+    pub fn get_current_market_price(
+        &self,
+        item_id: Uuid,
+        order_side: OrderSide,
+    ) -> Option<Decimal> {
         let price_map = match order_side {
             OrderSide::Buy => self.sell_orders.get(&item_id)?,
             OrderSide::Sell => self.buy_orders.get(&item_id)?,
         };
 
         match order_side {
-            OrderSide::Buy => price_map
-                .iter()
-                .next()
-                .map(|(ordered_price, _)| ordered_price.0),
+            OrderSide::Buy => price_map.iter().next().map(|(price, _)| *price),
 
-            OrderSide::Sell => price_map
-                .iter()
-                .next_back()
-                .map(|(ordered_price, _)| ordered_price.0),
+            OrderSide::Sell => price_map.iter().next_back().map(|(price, _)| *price),
         }
     }
 
@@ -180,7 +179,11 @@ impl OrderBookService {
         }
     }
 
-    pub fn update_order_quantity(&mut self, order_id: Uuid, new_quantity: f32) -> Option<&Order> {
+    pub fn update_order_quantity(
+        &mut self,
+        order_id: Uuid,
+        new_quantity: Decimal,
+    ) -> Option<&Order> {
         if let Some(order) = self.orders.get_mut(&order_id) {
             order.quantity = new_quantity;
             order.updated_at = Utc::now();
@@ -190,7 +193,7 @@ impl OrderBookService {
         }
     }
 
-    pub fn update_order_price(&mut self, order_id: Uuid, new_price: f32) -> Option<&Order> {
+    pub fn update_order_price(&mut self, order_id: Uuid, new_price: Decimal) -> Option<&Order> {
         if let Some(order) = self.get_mutable_order_by_id(order_id) {
             order.price = new_price;
             order.updated_at = Utc::now();
@@ -207,7 +210,7 @@ impl OrderBookService {
         };
 
         let item_id = order.item_id;
-        let price = OrderedFloat(order.price);
+        let price = order.price;
         let side = order.order_side;
 
         let book = match side {
@@ -217,7 +220,7 @@ impl OrderBookService {
 
         if let Some(price_map) = book.get_mut(&item_id) {
             if let Some(order_queue) = price_map.get_mut(&price) {
-                order_queue.retain(|order_id_from_queue| order_id_from_queue.clone() != order_id);
+                order_queue.retain(|order_id_from_queue| *order_id_from_queue != order_id);
 
                 if order_queue.is_empty() {
                     price_map.remove(&price);
@@ -230,7 +233,7 @@ impl OrderBookService {
         }
     }
 
-    fn fill_order(&mut self, order_id: Uuid, quantity_filled: f32) -> Option<&mut Order> {
+    fn fill_order(&mut self, order_id: Uuid, quantity_filled: Decimal) -> Option<&mut Order> {
         let is_fully_filled = if let Some(order) = self.get_mutable_order_by_id(order_id) {
             order.quantity_filled += quantity_filled;
 
@@ -273,22 +276,22 @@ impl OrderBookService {
             }
         };
 
-        let prices: Vec<OrderedFloat<f32>> = match incoming_order.order_side {
+        let prices: Vec<Decimal> = match incoming_order.order_side {
             OrderSide::Buy => price_maps.keys().cloned().collect(),
             OrderSide::Sell => price_maps.keys().cloned().rev().collect(),
         };
 
-        let mut queue_orders: Vec<(f32, Uuid)> = Vec::new();
+        let mut queue_orders: Vec<(Decimal, Uuid)> = Vec::new();
 
         for price in prices {
             let order_queue = price_maps.get(&price);
             for order_id in order_queue.unwrap() {
-                queue_orders.push((price.into_inner(), order_id.clone()));
+                queue_orders.push((price, *order_id));
             }
         }
 
         let mut trades: Vec<Trade> = Vec::new();
-        let mut staged_order_to_fill: HashMap<Uuid, f32> = HashMap::new();
+        let mut staged_order_to_fill: HashMap<Uuid, Decimal> = HashMap::new();
 
         for (price, order_id) in queue_orders {
             let resting_order = self.get_order_by_id(order_id);
@@ -311,16 +314,12 @@ impl OrderBookService {
             }
 
             let available_quantity = resting_order.quantity - resting_order.quantity_filled;
-            if available_quantity <= 0.0 {
+            if available_quantity <= Decimal::ZERO {
                 continue;
             }
 
             let quantity_to_match = incoming_order.quantity - incoming_order.quantity_filled;
-            let trade_quantity = min(
-                OrderedFloat(available_quantity),
-                OrderedFloat(quantity_to_match),
-            )
-            .into_inner();
+            let trade_quantity = min(available_quantity, quantity_to_match);
 
             let trade_id: Uuid = Uuid::new_v4();
 
@@ -342,8 +341,12 @@ impl OrderBookService {
                 timestamp: Utc::now(),
             });
 
-            *staged_order_to_fill.entry(resting_order.id).or_insert(0.0) += trade_quantity;
-            *staged_order_to_fill.entry(incoming_order.id).or_insert(0.0) += trade_quantity;
+            *staged_order_to_fill
+                .entry(resting_order.id)
+                .or_insert(Decimal::ZERO) += trade_quantity;
+            *staged_order_to_fill
+                .entry(incoming_order.id)
+                .or_insert(Decimal::ZERO) += trade_quantity;
 
             incoming_order.quantity_filled += trade_quantity;
 
@@ -378,3 +381,4 @@ impl OrderBookService {
         }
     }
 }
+
