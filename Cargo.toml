@@ -1,6 +1,6 @@
 [package]
 name = "oxide-arbiter"
-version = "0.1.0-beta.1"
+version = "0.2.0-beta.2"
 edition = "2024"
 description = "A CLOB order matching engine with price-time priority, limit/market orders, and four time-in-force policies."
 license = "MIT"
