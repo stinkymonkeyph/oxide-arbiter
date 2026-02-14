@@ -6,7 +6,7 @@ use std::{
 use crate::components::dto::{
     CreateOrderRequest, Order, OrderSide, OrderStatus, OrderType, TimeInForce, Trade,
 };
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use ordered_float::OrderedFloat;
 use uuid::Uuid;
 
@@ -118,12 +118,11 @@ impl OrderBookService {
         &self.orders
     }
 
-    fn is_expired_more_than_24_hours(&self, expires_at: Option<DateTime<Utc>>) -> bool {
+    fn is_expired(&self, expires_at: Option<DateTime<Utc>>) -> bool {
         match expires_at {
             Some(expiry) => {
                 let now = Utc::now();
-                let twenty_four_hours_ago = now - Duration::hours(24);
-                expiry < twenty_four_hours_ago
+                expiry < now
             }
             None => false,
         }
@@ -232,20 +231,23 @@ impl OrderBookService {
     }
 
     fn fill_order(&mut self, order_id: Uuid, quantity_filled: f32) -> Option<&mut Order> {
-        if let Some(order) = self.get_mutable_order_by_id(order_id) {
+        let is_fully_filled = if let Some(order) = self.get_mutable_order_by_id(order_id) {
             order.quantity_filled += quantity_filled;
 
             if order.quantity_filled >= order.quantity {
                 order.status = OrderStatus::Closed;
+                true
             } else {
                 order.status = OrderStatus::PartiallyFilled;
+                false
             }
-
-            order.updated_at = Utc::now();
-            order.quantity_filled >= order.quantity
         } else {
             return None;
         };
+
+        if is_fully_filled {
+            self.remove_from_book(order_id);
+        }
 
         self.get_mutable_order_by_id(order_id)
     }
@@ -259,11 +261,9 @@ impl OrderBookService {
     }
 
     pub fn execute_order_matching(&mut self, incoming_order: &mut Order) {
-        let mut trades: Vec<Trade> = Vec::new();
-
         let order_book_side = match incoming_order.order_side {
-            OrderSide::Buy => self.sell_orders.clone(),
-            OrderSide::Sell => self.buy_orders.clone(),
+            OrderSide::Buy => &self.sell_orders,
+            OrderSide::Sell => &self.buy_orders,
         };
 
         let price_maps = match order_book_side.get(&incoming_order.item_id) {
@@ -278,93 +278,81 @@ impl OrderBookService {
             OrderSide::Sell => price_maps.keys().cloned().rev().collect(),
         };
 
-        let mut matched_trade_list: HashMap<usize, Order> = HashMap::new();
-        let mut staged_order_to_fill: HashMap<Uuid, f32> = HashMap::new();
+        let mut queue_orders: Vec<(f32, Uuid)> = Vec::new();
 
-        for price in &prices {
-            let order_queue = &price_maps[price];
-
-            for resting_order_id in order_queue {
-                let resting_order = self.get_order_by_id(resting_order_id.clone());
-
-                if !resting_order.is_some() {
-                    break;
-                }
-
-                let resting_order = resting_order.unwrap();
-                let resting_order_snapshot = resting_order.clone();
-
-                if matches!(resting_order.time_in_force, TimeInForce::DAY)
-                    && self.is_expired_more_than_24_hours(resting_order.expires_at)
-                {
-                    self.remove_from_book(resting_order.id);
-                    break;
-                }
-
-                let is_match = self.can_match_price(incoming_order, resting_order);
-
-                if !is_match {
-                    break;
-                }
-
-                let available_quantity = resting_order.quantity - resting_order.quantity_filled;
-                if available_quantity <= 0.0 {
-                    break;
-                }
-
-                let quantity_to_match = incoming_order.quantity - incoming_order.quantity_filled;
-                let trade_quantity = min(
-                    OrderedFloat(available_quantity),
-                    OrderedFloat(quantity_to_match),
-                )
-                .into_inner();
-
-                if trade_quantity <= 0.0 {
-                    break;
-                }
-
-                let trade_id = Uuid::new_v4();
-                let trade_index = trades.len();
-
-                trades.push(Trade {
-                    id: trade_id,
-                    buy_order_id: if matches!(incoming_order.order_side, OrderSide::Buy) {
-                        incoming_order.id
-                    } else {
-                        resting_order.id
-                    },
-                    sell_order_id: if matches!(incoming_order.order_side, OrderSide::Sell) {
-                        incoming_order.id
-                    } else {
-                        resting_order.id
-                    },
-                    item_id: incoming_order.item_id,
-                    quantity: trade_quantity,
-                    price: price.into_inner(),
-                    timestamp: Utc::now(),
-                });
-
-                matched_trade_list.insert(trade_index, resting_order_snapshot);
-
-                staged_order_to_fill
-                    .entry(resting_order.id)
-                    .and_modify(|q| *q += trade_quantity)
-                    .or_insert(trade_quantity);
-
-                staged_order_to_fill
-                    .entry(incoming_order.id)
-                    .and_modify(|q| *q += trade_quantity)
-                    .or_insert(trade_quantity);
-
-                if let Some(order) = self.get_order_by_id(incoming_order.id) {
-                    let mut quantity_filled = order.quantity_filled.clone();
-                    quantity_filled += trade_quantity;
-                    incoming_order.quantity_filled = quantity_filled;
-                }
+        for price in prices {
+            let order_queue = price_maps.get(&price);
+            for order_id in order_queue.unwrap() {
+                queue_orders.push((price.into_inner(), order_id.clone()));
             }
         }
 
-        let mut performed_reversal = false;
+        let mut trades: Vec<Trade> = Vec::new();
+        let mut staged_order_to_fill: HashMap<Uuid, f32> = HashMap::new();
+
+        for (price, order_id) in queue_orders {
+            let resting_order = self.get_order_by_id(order_id);
+
+            if !resting_order.is_some() {
+                continue;
+            }
+
+            let resting_order = resting_order.unwrap();
+
+            if self.is_expired(resting_order.expires_at)
+                && matches!(resting_order.time_in_force, TimeInForce::DAY)
+            {
+                self.remove_from_book(resting_order.id);
+                continue;
+            }
+
+            if !self.can_match_price(incoming_order, resting_order) {
+                break;
+            }
+
+            let available_quantity = resting_order.quantity - resting_order.quantity_filled;
+            if available_quantity <= 0.0 {
+                continue;
+            }
+
+            let quantity_to_match = incoming_order.quantity - incoming_order.quantity_filled;
+            let trade_quantity = min(
+                OrderedFloat(available_quantity),
+                OrderedFloat(quantity_to_match),
+            )
+            .into_inner();
+
+            let trade_id: Uuid = Uuid::new_v4();
+
+            trades.push(Trade {
+                id: trade_id,
+                buy_order_id: if matches!(incoming_order.order_side, OrderSide::Buy) {
+                    incoming_order.id
+                } else {
+                    resting_order.id
+                },
+                sell_order_id: if matches!(incoming_order.order_side, OrderSide::Sell) {
+                    incoming_order.id
+                } else {
+                    resting_order.id
+                },
+                item_id: incoming_order.item_id,
+                quantity: trade_quantity,
+                price,
+                timestamp: Utc::now(),
+            });
+
+            *staged_order_to_fill.entry(resting_order.id).or_insert(0.0) += trade_quantity;
+            *staged_order_to_fill.entry(incoming_order.id).or_insert(0.0) += trade_quantity;
+
+            incoming_order.quantity_filled += trade_quantity;
+
+            if incoming_order.quantity_filled == incoming_order.quantity {
+                break;
+            }
+        }
+
+        let mut unstaged_matched_orders = false;
 
         if trades.len() > 0 && matches!(incoming_order.time_in_force, TimeInForce::IOC) {
             self.update_order_quantity(incoming_order.id, incoming_order.quantity_filled);
@@ -375,15 +363,12 @@ impl OrderBookService {
             && incoming_order.quantity_filled != incoming_order.quantity
         {
             self.cancel_order(incoming_order.id);
-            performed_reversal = true;
+            unstaged_matched_orders = true;
         }
 
-        if !performed_reversal {
+        if !unstaged_matched_orders {
             for (order_id, trade_quantity) in staged_order_to_fill {
                 self.fill_order(order_id, trade_quantity);
-            }
-            for (_, order) in matched_trade_list {
-                self.remove_from_book(order.id);
             }
             self.trades.append(&mut trades);
         }
