@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use std::str::FromStr;
 
 fn main() {
-    let mut order_book = OrderBookService::new();
+    let order_book = OrderBookService::new();
     let _ = order_book.add_order(CreateOrderRequest {
         item_id: uuid::Uuid::new_v4(),
         user_id: uuid::Uuid::new_v4(),

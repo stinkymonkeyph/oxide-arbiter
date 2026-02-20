@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 fn main() {
     println!("=== IOC (Immediate Or Cancel) ===");
-    let mut book = OrderBookService::new();
+    let book = OrderBookService::new();
     let item = uuid::Uuid::new_v4();
     book.add_order(CreateOrderRequest {
         item_id: item,
@@ -32,10 +32,10 @@ fn main() {
     println!("Quantity requested:      100");
     println!("Quantity filled:         {}", ioc.quantity_filled);
     println!("Quantity after IOC trim: {}", ioc.quantity);
-    println!("Trades:                  {}", book.trades.len());
+    println!("Trades:                  {}", book.get_trades().len());
     // --- FOK: Fill Or Kill ---
     println!("\n=== FOK (Fill Or Kill) ===");
-    let mut book = OrderBookService::new();
+    let book = OrderBookService::new();
     let item = uuid::Uuid::new_v4();
     // Resting sell at a price the FOK buy cannot reach
     book.add_order(CreateOrderRequest {
@@ -62,10 +62,10 @@ fn main() {
         .unwrap();
     println!("FOK order status:  {:?}", fok.status);
     println!("Quantity filled:   {}", fok.quantity_filled);
-    println!("Trades:            {}", book.trades.len());
+    println!("Trades:            {}", book.get_trades().len());
     // --- GTC: Good Till Cancelled ---
     println!("\n=== GTC (Good Till Cancelled) ===");
-    let mut book = OrderBookService::new();
+    let book = OrderBookService::new();
     let item = uuid::Uuid::new_v4();
     let gtc = book
         .add_order(CreateOrderRequest {

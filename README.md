@@ -18,12 +18,13 @@ oxide-arbiter implements a Centralized Limit Order Book (CLOB) with price-time p
 - **Multi-asset support** — a single `OrderBookService` manages independent order books per `item_id`
 - **O(1) order lookups** — orders stored directly in a `HashMap<Uuid, Order>`
 - **Trade history** — every execution recorded with buy/sell order IDs, quantity, price, and timestamp
+- **Thread-safe** — `Arc<Mutex<>>` wrapper enables safe concurrent access; clone the service cheaply to share across threads
 
 ---
 
 ## Architecture
 
-`OrderBookService` uses a layered data structure:
+`OrderBookService` is a thread-safe wrapper (`Arc<Mutex<OrderBookServiceInner>>`) around a layered data structure:
 
 ```
 orders: HashMap<Uuid, Order>               // source of truth; O(1) lookup by ID
@@ -37,6 +38,7 @@ trades: Vec<Trade>                          // append-only execution history
 - The outer `HashMap` partitions the book by asset (`item_id`).
 - `BTreeMap` keeps price levels sorted automatically — buy side descending, sell side ascending — so the best price is always at the front.
 - `VecDeque` at each price level provides O(1) FIFO insertion and removal, enforcing time priority within a price level.
+- `Arc<Mutex<>>` wrapper enables safe sharing across threads; `Clone` on the service is cheap (clones the Arc, not the data).
 
 **Matching flow:**
 
@@ -124,21 +126,19 @@ enum TimeInForce { GTC, IOC, FOK, DAY }
 OrderBookService::new() -> Self
 
 // Order submission
-add_order(&mut self, req: CreateOrderRequest) -> Result<Order, String>
+add_order(&self, req: CreateOrderRequest) -> Result<Order, String>
 
 // Queries
-get_orders(&self) -> &HashMap<Uuid, Order>
-get_order_by_id(&self, order_id: Uuid) -> Option<&Order>
+get_orders(&self) -> HashMap<Uuid, Order>
+get_order_by_id(&self, order_id: Uuid) -> Option<Order>
 get_current_market_price(&self, item_id: Uuid, side: OrderSide) -> Option<Decimal>
+get_trades(&self) -> Vec<Trade>
 
 // Mutations
-cancel_order(&mut self, order_id: Uuid) -> bool
-update_order_status(&mut self, order_id: Uuid, status: OrderStatus) -> Option<&Order>
-update_order_quantity(&mut self, order_id: Uuid, quantity: Decimal) -> Option<&Order>
-update_order_price(&mut self, order_id: Uuid, price: Decimal) -> Option<&Order>
-
-// Trade history (public field)
-trades: Vec<Trade>
+cancel_order(&self, order_id: Uuid) -> bool
+update_order_status(&self, order_id: Uuid, status: OrderStatus) -> Option<Order>
+update_order_quantity(&self, order_id: Uuid, quantity: Decimal) -> Option<Order>
+update_order_price(&self, order_id: Uuid, price: Decimal) -> Option<Order>
 ```
 
 **`add_order` validation errors:**
@@ -174,7 +174,7 @@ use oxide_arbiter::{CreateOrderRequest, OrderBookService, OrderSide, OrderType, 
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
-let mut book = OrderBookService::new();
+let book = OrderBookService::new();
 let asset_id = uuid::Uuid::new_v4();
 let user_id = uuid::Uuid::new_v4();
 
@@ -201,7 +201,7 @@ let sell = book.add_order(CreateOrderRequest {
 }).unwrap();
 
 // Inspect executed trades
-for trade in &book.trades {
+for trade in &book.get_trades() {
     println!("Trade {} — qty: {} @ {}", trade.id, trade.quantity, trade.price);
 }
 
@@ -252,5 +252,4 @@ Every query other than lookup-by-ID currently requires an O(n) scan of the full 
 
 | Item | Detail |
 |------|--------|
-| Thread safety | `OrderBookService` is not `Sync`. An `Arc<Mutex<OrderBookService>>` wrapper or a channel-based design is needed for concurrent order acceptance. |
 | Benchmarks | No performance benchmarks exist. A `criterion`-based suite would establish baseline throughput and catch regressions. |

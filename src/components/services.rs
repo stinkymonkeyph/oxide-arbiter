@@ -2,6 +2,7 @@ use std::{
     cmp::min,
     collections::{BTreeMap, HashMap, VecDeque},
     str::FromStr,
+    sync::{Arc, Mutex},
 };
 
 use crate::components::dto::{
@@ -11,16 +12,16 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
-pub struct OrderBookService {
+pub struct OrderBookServiceInner {
     orders: HashMap<Uuid, Order>,
     buy_orders: HashMap<Uuid, BTreeMap<Decimal, VecDeque<Uuid>>>,
     sell_orders: HashMap<Uuid, BTreeMap<Decimal, VecDeque<Uuid>>>,
     pub trades: Vec<Trade>,
 }
 
-impl OrderBookService {
+impl OrderBookServiceInner {
     pub fn new() -> Self {
-        OrderBookService {
+        OrderBookServiceInner {
             orders: Default::default(),
             buy_orders: Default::default(),
             sell_orders: Default::default(),
@@ -382,3 +383,74 @@ impl OrderBookService {
     }
 }
 
+#[derive(Clone)]
+pub struct OrderBookService {
+    inner: Arc<Mutex<OrderBookServiceInner>>,
+}
+
+impl OrderBookService {
+    pub fn new() -> Self {
+        OrderBookService {
+            inner: Arc::new(Mutex::new(OrderBookServiceInner::new())),
+        }
+    }
+
+    pub fn add_order(&self, request: CreateOrderRequest) -> Result<Order, String> {
+        self.inner.lock().unwrap().add_order(request)
+    }
+
+    pub fn get_orders(&self) -> HashMap<Uuid, Order> {
+        self.inner.lock().unwrap().get_orders().clone()
+    }
+
+    pub fn get_current_market_price(
+        &self,
+        item_id: Uuid,
+        order_side: OrderSide,
+    ) -> Option<Decimal> {
+        self.inner
+            .lock()
+            .unwrap()
+            .get_current_market_price(item_id, order_side)
+    }
+
+    pub fn get_order_by_id(&self, order_id: Uuid) -> Option<Order> {
+        self.inner
+            .lock()
+            .unwrap()
+            .get_order_by_id(order_id)
+            .cloned()
+    }
+
+    pub fn update_order_status(&self, order_id: Uuid, new_status: OrderStatus) -> Option<Order> {
+        self.inner
+            .lock()
+            .unwrap()
+            .update_order_status(order_id, new_status)
+            .cloned()
+    }
+
+    pub fn cancel_order(&self, order_id: Uuid) -> bool {
+        self.inner.lock().unwrap().cancel_order(order_id)
+    }
+
+    pub fn update_order_quantity(&self, order_id: Uuid, new_quantity: Decimal) -> Option<Order> {
+        self.inner
+            .lock()
+            .unwrap()
+            .update_order_quantity(order_id, new_quantity)
+            .cloned()
+    }
+
+    pub fn update_order_price(&self, order_id: Uuid, new_price: Decimal) -> Option<Order> {
+        self.inner
+            .lock()
+            .unwrap()
+            .update_order_price(order_id, new_price)
+            .cloned()
+    }
+
+    pub fn get_trades(&self) -> Vec<Trade> {
+        self.inner.lock().unwrap().trades.clone()
+    }
+}

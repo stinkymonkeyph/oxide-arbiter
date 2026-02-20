@@ -5,7 +5,8 @@ use rust_decimal::Decimal;
 use std::str::FromStr;
 
 fn print_orders(book: &OrderBookService) {
-    let mut orders: Vec<_> = book.get_orders().values().collect();
+    let orders_map = book.get_orders();
+    let mut orders: Vec<_> = orders_map.values().collect();
     orders.sort_by_key(|o| o.created_at);
     for order in orders {
         println!(
@@ -22,7 +23,7 @@ fn print_orders(book: &OrderBookService) {
 }
 
 fn main() {
-    let mut book = OrderBookService::new();
+    let book = OrderBookService::new();
     println!("=== Full Fill ===");
     let item_a = uuid::Uuid::new_v4();
     book.add_order(CreateOrderRequest {
@@ -46,7 +47,7 @@ fn main() {
     })
     .unwrap();
     println!("Trades produced:");
-    for trade in &book.trades {
+    for trade in &book.get_trades() {
         println!(
             "  trade {} — {} units @ {}",
             trade.id, trade.quantity, trade.price
@@ -79,7 +80,7 @@ fn main() {
     })
     .unwrap();
     println!("Trades produced:");
-    for trade in &book.trades {
+    for trade in &book.get_trades() {
         println!(
             "  trade {} — {} units @ {}",
             trade.id, trade.quantity, trade.price
@@ -89,8 +90,8 @@ fn main() {
     print_orders(&book);
     // --- Summary: filter by fill status ---
     println!("\n=== Filled Orders ===");
-    let mut closed: Vec<_> = book
-        .get_orders()
+    let orders_map = book.get_orders();
+    let mut closed: Vec<_> = orders_map
         .values()
         .filter(|o| matches!(o.status, OrderStatus::Closed))
         .collect();
@@ -102,8 +103,8 @@ fn main() {
             order.order_side, order.quantity_filled, order.price
         );
     }
-    let mut partial: Vec<_> = book
-        .get_orders()
+    let orders_map_2 = book.get_orders();
+    let mut partial: Vec<_> = orders_map_2
         .values()
         .filter(|o| matches!(o.status, OrderStatus::PartiallyFilled))
         .collect();

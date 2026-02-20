@@ -10,7 +10,7 @@ mod tests {
 
     #[test]
     fn should_add_order() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let create_order_request = CreateOrderRequest {
             item_id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
@@ -28,7 +28,7 @@ mod tests {
 
     #[test]
     fn should_get_order_by_id() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let create_order_request = CreateOrderRequest {
             item_id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
@@ -46,7 +46,7 @@ mod tests {
 
     #[test]
     fn should_update_order_status() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let create_order_request = CreateOrderRequest {
             item_id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn should_update_order_quantity() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let create_order_request = CreateOrderRequest {
             item_id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn should_cancel_order() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let create_order_request = CreateOrderRequest {
             item_id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn should_be_partially_filled() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let item_id = Uuid::new_v4();
 
         let buy_order_request = CreateOrderRequest {
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn should_fully_filled() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let item_id = Uuid::new_v4();
 
         let buy_order_request = CreateOrderRequest {
@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn should_update_order_price() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let create_order_request = CreateOrderRequest {
             item_id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn trades_should_contain_filled_orders() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let item_id = Uuid::new_v4();
 
         let buy_order_request = CreateOrderRequest {
@@ -253,15 +253,16 @@ mod tests {
         };
         let sell_order = order_book.add_order(sell_order_request).unwrap();
 
-        assert_eq!(order_book.trades.len(), 1);
-        let trade = &order_book.trades[0];
+        let trades = order_book.get_trades();
+        assert_eq!(trades.len(), 1);
+        let trade = &trades[0];
         assert_eq!(trade.buy_order_id, buy_order.id);
         assert_eq!(trade.sell_order_id, sell_order.id);
     }
 
     #[test]
     fn should_update_order_quantity_and_price() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let create_order_request = CreateOrderRequest {
             item_id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
@@ -291,7 +292,7 @@ mod tests {
 
     #[test]
     fn should_not_match_orders_with_incompatible_prices() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let item_id = Uuid::new_v4();
         let buy_order_request = CreateOrderRequest {
             item_id,
@@ -326,7 +327,7 @@ mod tests {
 
     #[test]
     fn should_error_market_order_without_existing_orders() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let create_order_request = CreateOrderRequest {
             item_id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
@@ -346,7 +347,7 @@ mod tests {
 
     #[test]
     fn should_fill_market_order_with_existing_orders() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let item_id = Uuid::new_v4();
 
         let sell_order_request = CreateOrderRequest {
@@ -383,7 +384,7 @@ mod tests {
 
     #[test]
     fn should_partially_fill_ioc_order() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let item_id = Uuid::new_v4();
 
         let sell_order_request = CreateOrderRequest {
@@ -417,7 +418,7 @@ mod tests {
 
     #[test]
     fn should_not_fill_because_invalid_market_price() {
-        let mut order_book = OrderBookService::new();
+        let order_book = OrderBookService::new();
         let item_id = Uuid::new_v4();
 
         let sell_order_request = CreateOrderRequest {
