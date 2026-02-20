@@ -6,6 +6,7 @@ mod tests {
     };
     use rust_decimal::Decimal;
     use std::str::FromStr;
+    use std::thread;
     use uuid::Uuid;
 
     #[test]
@@ -448,5 +449,50 @@ mod tests {
         assert!(err_msg.contains("Market order price cannot be more than 5% away"));
         assert!(err_msg.contains("30"));
         assert!(err_msg.contains("20"));
+    }
+
+    #[test]
+    fn should_handle_concurrent_order_placement() {
+        let order_book = OrderBookService::new();
+        let item_id = Uuid::new_v4();
+
+        let mut handles = vec![];
+
+        for i in 0..10 {
+            let book_clone = order_book.clone();
+            let handle = thread::spawn(move || {
+                let side = if i % 2 == 0 {
+                    OrderSide::Buy
+                } else {
+                    OrderSide::Sell
+                };
+
+                let create_order_request = CreateOrderRequest {
+                    item_id,
+                    user_id: Uuid::new_v4(),
+                    order_side: side,
+                    order_type: OrderType::Limit,
+                    time_in_force: TimeInForce::GTC,
+                    price: Decimal::from_str("10.0").unwrap(),
+                    quantity: Decimal::from_str("10.0").unwrap(),
+                };
+
+                book_clone.add_order(create_order_request)
+            });
+            handles.push(handle);
+        }
+
+        let mut results = vec![];
+        for handle in handles {
+            results.push(handle.join().unwrap());
+        }
+
+        assert_eq!(results.iter().filter(|r| r.is_ok()).count(), 10);
+
+        let orders = order_book.get_orders();
+        assert!(orders.len() <= 10);
+
+        let trades = order_book.get_trades();
+        assert!(trades.len() > 0);
     }
 }

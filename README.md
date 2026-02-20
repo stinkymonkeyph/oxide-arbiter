@@ -218,13 +218,14 @@ println!("Buy order status: {:?}", filled.status); // Closed
 cargo test
 ```
 
-15 test cases covering:
+16 test cases covering:
 
 - Order CRUD — creation, lookup, status/quantity/price updates, cancellation
 - Matching — partial fills, full fills, incompatible price rejection
 - Market orders — price discovery, slippage protection, no-liquidity error
 - Time-in-force — IOC partial fill behaviour
 - Trade recording — trade history integrity
+- Thread safety — concurrent order placement across multiple threads
 
 ---
 
