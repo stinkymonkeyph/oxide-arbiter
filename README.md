@@ -10,7 +10,7 @@ oxide-arbiter implements a Centralized Limit Order Book (CLOB) with price-time p
 
 ## Features
 
-- **Price-time priority matching** — orders at the same price level execute FIFO
+- **Price-time priority matching** — orders at the same price level execute FIFO, following [CME Group FIFO matching standards](https://cmegroupclientsite.atlassian.net/wiki/spaces/EPICSANDBOX/pages/457218479/Supported+Matching+Algorithms#FIFO)
 - **Limit and market orders** — limit orders execute at a specified price or better; market orders execute at the current best available price
 - **Market order slippage protection** — market orders rejected if execution price deviates more than 5% from current market price
 - **Four time-in-force policies** — GTC, IOC, FOK, DAY
@@ -248,6 +248,16 @@ Every query other than lookup-by-ID currently requires an O(n) scan of the full 
 | DAY order expiration enforcement | `expires_at` is set on DAY orders but never checked. Requires an explicit `expire_orders()` sweep to remove stale orders from the book. |
 | Stop orders | `StopLoss` and `StopLimit` variants with a trigger price field; activates the order when the market reaches the trigger. |
 | Serde support | `#[derive(Serialize, Deserialize)]` on all public types, behind an optional `serde` feature flag. |
+
+### Matching Algorithms
+
+Implementation follows [CME Group FIFO matching standards](https://cmegroupclientsite.atlassian.net/wiki/spaces/EPICSANDBOX/pages/457218479/Supported+Matching+Algorithms#FIFO). Additional compliance and enhancement items:
+
+| Item | Detail |
+|------|--------|
+| Order priority re-queuing rules | CME FIFO specifies that orders lose priority and must be re-queued when: (1) quantity is increased, (2) price is changed, or (3) account number is changed. Current implementation allows order updates via `update_order_quantity` and `update_order_price` without re-queuing. Need to implement re-queuing logic that removes orders from their current position in the book and re-inserts them at the back of the queue when these modifications occur. |
+| FIFO with LMM (Lead Market Maker) | Enhanced FIFO algorithm with configurable LMM allocation before standard FIFO matching. LMMs are allocated a configurable percentage of aggressor orders first, then remaining quantity allocated FIFO. Requires LMM account designation and two-stage matching: (1) LMM percentage allocation, (2) FIFO allocation for residual. |
+| Self-Match Prevention (SMP) | Prevent or cancel orders when same-firm opposite-side orders would trade against each other. Critical for market makers and high-frequency traders. Requires firm/account grouping and pre-match validation logic. Standard feature in CME FIFO markets. |
 
 ### Infrastructure
 
